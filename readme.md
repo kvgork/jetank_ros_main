@@ -9,9 +9,9 @@
 
 This repository provides a complete Robot Operating System (ROS) integration for the [Waveshare JeTank AI Kit](https://www.waveshare.com/wiki/JETANK_AI_Kit), transforming it into a fully autonomous robot platform. Building upon the [original Waveshare JeTank repository](https://github.com/waveshare/JETANK), this project adds ROS compatibility and extends the robot's capabilities to include autonomous sock detection and collection in indoor environments.
 
+**This is all work in progress!**
 
-
-This is all work in progress!
+For recent development logs and notes, see the [Updates](#updates) section.
 
 ## 🛠️ Hardware updates
 
