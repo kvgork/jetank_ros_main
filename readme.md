@@ -9,13 +9,14 @@
 
 This repository provides a complete Robot Operating System (ROS) integration for the [Waveshare JeTank AI Kit](https://www.waveshare.com/wiki/JETANK_AI_Kit), transforming it into a fully autonomous robot platform. Building upon the [original Waveshare JeTank repository](https://github.com/waveshare/JETANK), this project adds ROS compatibility and extends the robot's capabilities to include autonomous sock detection and collection in indoor environments.
 
-I hope to upgrade this project to ROS2 as soon as I get my hands on a Jetson Orin Super Development kit. Then I also want to try to create functions using Reinforcement Learning.
+
 
 This is all work in progress!
 
 ## 🛠️ Hardware updates
 
 - **Camera module**: Updated the stock IMX219-160 Camera module to a IMX219-83 Stereo Camera module to allow for depth perception
+- **Computation module**: The basic jetank is made for a Jetson nano developer B01, But I want to upgrade it to the new Orin Jetson super developer kit
 
 ## ✨ Key Features
 
@@ -186,5 +187,5 @@ This project is licensed under the GNU GPLv3 License - see the [LICENSE](LICENSE
 
 ## Updates
 
-- [30/06/2025]: Initial package is online
+- [30/06/2025]: Initial package is online, dev setup and links are made
 - [29/06/2025]: Got my hand on a orin nano super developer kit, so will be fitting that in the frame at start over on ROS2! 
