@@ -4,15 +4,34 @@
   <name>jetank_ros2_main</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="koen@todo.todo">koen</maintainer>
+  <maintainer email="gorkom.projects@gmail.com">koen</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
+  <depend>os</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+
+  <!-- Runtime dependencies for launch files -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>launch_xml</exec_depend>
+  <exec_depend>launch_yaml</exec_depend>
+  
+  <!-- Dependencies on the packages to launch -->
+  <exec_depend>motor_servo_controller</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  
+  <!-- To use URDF/XACRO files -->
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>urdf</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

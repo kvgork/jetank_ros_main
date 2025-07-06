@@ -1,0 +1,13 @@
+robot_controller:
+  ros__parameters:
+    left_motor_forward_channel: 1
+    left_motor_reverse_channel: 0
+    left_motor_alpha: 1.0
+
+    right_motor_forward_channel: 2
+    right_motor_reverse_channel: 3
+    right_motor_alpha: 1.0
+
+    track_width: 0.11
+    max_linear_velocity: 1.0
+    max_angular_velocity: 2.0
