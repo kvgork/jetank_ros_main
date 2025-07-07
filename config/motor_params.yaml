@@ -3,10 +3,12 @@ robot_controller:
     left_motor_forward_channel: 1
     left_motor_reverse_channel: 0
     left_motor_alpha: 1.0
+    left_motor_beta: 0.0
 
     right_motor_forward_channel: 2
     right_motor_reverse_channel: 3
     right_motor_alpha: 1.0
+    right_motor_beta: 0.0
 
     track_width: 0.11
     max_linear_velocity: 1.0
