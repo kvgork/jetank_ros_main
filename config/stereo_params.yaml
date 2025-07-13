@@ -1,0 +1,31 @@
+# Stereo camera parameters
+jetson_stereo_node:
+  ros__parameters:
+    # Camera settings
+    camera_width: 640
+    camera_height: 480
+    camera_fps: 20
+    
+    # Frame IDs
+    left_frame_id: "camera_left_link"
+    right_frame_id: "camera_right_link"
+    
+    # Stereo processing
+    use_gpu: true
+    stereo_algorithm: "GPU_BM"
+    num_disparities: 64
+    block_size: 15
+    min_disparity: 0
+    max_disparity: 64
+    
+    # Point cloud filtering
+    voxel_leaf_size: 0.01
+    statistical_filter_k: 50
+    statistical_filter_stddev: 1.0
+    
+    # Camera info URLs (optional)
+    left_camera_info_url: ""
+    right_camera_info_url: ""
+    
+    # Performance
+    max_processing_threads: 4
