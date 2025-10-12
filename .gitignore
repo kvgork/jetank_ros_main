@@ -1,0 +1,30 @@
+# ROS2 build artifacts
+build/
+install/
+log/
+
+# Python build artifacts
+*.egg-info/
+dist/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Generated files
+*.autosave
+*.user
+
+# Temporary files
+*.tmp
+*.bak
+*~
