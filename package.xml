@@ -25,6 +25,8 @@
   <exec_depend>motor_servo_controller</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>jetank_perception</exec_depend>
+  <exec_depend>jetank_navigation</exec_depend>
   
   <!-- To use URDF/XACRO files -->
   <exec_depend>xacro</exec_depend>

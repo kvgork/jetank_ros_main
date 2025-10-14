@@ -7,7 +7,7 @@
 
 ## 🤖 Project Overview
 
-This repository provides a complete Robot Operating System (ROS) integration for the [Waveshare JeTank AI Kit](https://www.waveshare.com/wiki/JETANK_AI_Kit), transforming it into a fully autonomous robot platform. Building upon the [original Waveshare JeTank repository](https://github.com/waveshare/JETANK), this project adds ROS compatibility and extends the robot's capabilities to include autonomous sock detection and collection in indoor environments.
+This repository provides a complete Robot Operating System (ROS) integration for the [Waveshare JeTank AI Kit](https://www.waveshare.com/wiki/JETANK_AI_Kit), transforming it into a fully autonomous robot platform. Building upon the [original Waveshare JeTank repository](https://github.com/waveshare/JETANK), this project adds ROS2 compatibility and extends the robot's capabilities to include autonomous sock detection and collection in indoor environments.
 
 **This is all work in progress!**
 
@@ -67,12 +67,12 @@ To be refined.
 
 ## 📋 Project Roadmap & TODO
 
-- [ ] Set up ROS package structure
-- [ ] Update hardware
-- [ ] Complete URDF model for visualization in RViz
+- [x] Set up ROS package structure
+- [x] Update hardware
+- [x] Complete URDF model for visualization in RViz
 
 Drive control
-- [ ] Implement basic motor control through ROS
+- [x] Implement basic motor control through ROS
 
 Arm control
 - [ ] Develop servo control interface
@@ -80,11 +80,11 @@ Arm control
 - [ ] Create MoveIt! config for the arm and gripper
 
 Camera implementation
-- [ ] Create camera node for video streaming
-- [ ] Create camera calibration script
-- [ ] Create camera node for point could generation
-- [ ] Make compressed image for point cloud generation
-- [ ] Optimize point cloud generation
+- [x] Create camera node for video streaming
+- [x] Create camera calibration script
+- [x] Create camera node for point could generation
+- [x] Make compressed image for point cloud generation
+- [x] Optimize point cloud generation
 
 Vision implementation
 - [ ] Add item segemntation model
@@ -187,5 +187,6 @@ This project is licensed under the GNU GPLv3 License - see the [LICENSE](LICENSE
 
 ## Updates
 
+- [14/10/2025]: Initial packages are done. Everything is ported from the ROS1 packages. Added point cloud generation. Starting on navigation. 
 - [30/06/2025]: Initial package is online, dev setup and links are made
 - [29/06/2025]: Got my hand on a orin nano super developer kit, so will be fitting that in the frame at start over on ROS2! 
