@@ -7,8 +7,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     # Get the package directory
-    pkg_share = get_package_share_directory('jetank_ros2_main')
-    
+    pkg_share = get_package_share_directory('jetank_description')
+
     # Path to URDF file
     urdf_file = os.path.join(pkg_share, 'urdf', 'jetank.xacro')
     

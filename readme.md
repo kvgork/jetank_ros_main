@@ -39,6 +39,8 @@ For recent development logs and notes, see the [Updates](#updates) section.
 - **Computer Vision**: OpenCV with GPU acceleration for stereo vision
 - **Point Cloud Processing**: PCL for 3D data processing and filtering
 - **SLAM**: PointCloud2 to LaserScan conversion for navigation stack
+- **Gazebo Simulation**: Complete simulation environment for testing and development
+- **URDF/Xacro**: Modular robot description following ROS2 best practices
 - **Hardware Integration**: Bridging Jetson Orin Nano with ROS2 ecosystem
 
 ## 🏗️ System Architecture
@@ -74,6 +76,27 @@ For recent development logs and notes, see the [Updates](#updates) section.
 │   └── PROGRESS.md                # Current development status
 │   # Purpose: Convert PointCloud2 to LaserScan for SLAM navigation
 │
+├── jetank_description/            (C++/ament_cmake)
+│   ├── urdf/                      # Robot description files
+│   │   ├── jetank.xacro           # Main robot description
+│   │   ├── jetank_arm.xacro       # Arm configuration
+│   │   ├── jetank_camera.xacro    # Camera mounts
+│   │   ├── jetank_wheel.xacro     # Wheel definitions
+│   │   └── ...                    # Additional URDF components
+│   ├── meshes/                    # 3D mesh files (STL/DAE)
+│   ├── launch/                    # Description launch files
+│   └── config/                    # Robot configuration parameters
+│   # Purpose: Centralized robot description following ROS2 best practices
+│
+├── jetank_simulation/             (C++/ament_cmake)
+│   ├── worlds/                    # Gazebo world files
+│   │   └── empty.world            # Empty testing environment
+│   ├── launch/
+│   │   └── gazebo.launch.py       # Gazebo simulation launcher
+│   ├── config/                    # Simulation configuration
+│   └── models/                    # Custom Gazebo models
+│   # Purpose: Gazebo simulation environment for testing and development
+│
 └── jetank_ros_main/               (Python/ament_python)
     ├── launch/
     │   ├── main.launch.py         # Full system integration
@@ -105,6 +128,28 @@ For recent development logs and notes, see the [Updates](#updates) section.
 - [x] Add GPU-accelerated stereo matching
 - [x] Implement quality monitoring and filtering
 - [x] Optimize for real-time performance on Jetson
+
+### Robot Description (jetank_description)
+- [x] Create jetank_description package following ROS2 best practices
+- [x] Move URDF/xacro files from jetank_ros_main
+- [x] Configure package with proper dependencies and install rules
+- [x] Set up directory structure (urdf, meshes, launch, config)
+- [ ] Add Gazebo-specific tags and plugins to URDF
+- [ ] Create or source 3D mesh files for visualization
+- [ ] Add display.launch.py for RViz visualization
+- [ ] Document robot kinematic structure
+
+### Simulation (jetank_simulation)
+- [x] Create jetank_simulation package for Gazebo
+- [x] Set up package structure (worlds, launch, config, models)
+- [x] Create empty.world for basic testing
+- [x] Implement gazebo.launch.py for robot spawning
+- [ ] Add differential drive plugin to URDF
+- [ ] Add camera plugins for stereo vision simulation
+- [ ] Create additional test worlds (obstacles, sock collection)
+- [ ] Configure ros2_control for simulated motors
+- [ ] Test sensor data publishing in simulation
+- [ ] Integrate with navigation stack in simulation
 
 ### Navigation (jetank_navigation) [In Progress - Phase 2]
 - [x] Design node architecture for PointCloud2 to LaserScan conversion
@@ -208,10 +253,18 @@ sudo apt install -y \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad
 
-# Install navigation dependencies (when ready)
+# Install navigation dependencies
 sudo apt install -y \
     ros-humble-navigation2 \
     ros-humble-nav2-bringup
+
+# Install Gazebo and simulation dependencies
+sudo apt install -y \
+    ros-humble-gazebo-ros-pkgs \
+    ros-humble-gazebo-plugins \
+    ros-humble-ros2-control \
+    ros-humble-ros2-controllers \
+    ros-humble-controller-manager
 ```
 
 ## 📁 Usage
@@ -241,13 +294,22 @@ ros2 launch jetank_ros_main motor_controller.launch.py
 
 # Launch URDF visualization in RViz
 ros2 launch jetank_ros_main urdf.launch.py
+
+# Launch Gazebo simulation
+ros2 launch jetank_simulation gazebo.launch.py
+
+# Launch Gazebo without GUI (headless)
+ros2 launch jetank_simulation gazebo.launch.py gui:=false
 ```
 
 ### Launch Full System
 
 ```bash
-# Launch complete JeTank system (when ready)
+# Launch complete JeTank system (real hardware)
 ros2 launch jetank_ros_main main.launch.py
+
+# Launch complete system in simulation (when integrated)
+ros2 launch jetank_simulation gazebo.launch.py
 ```
 
 ### Run Individual Nodes
@@ -327,7 +389,8 @@ This project is licensed under the GNU GPLv3 License - see the [LICENSE](LICENSE
 
 ## Updates
 
-- [06/11/2025]: Documentation updated. All packages reviewed and readme reflects current state.
+- [06/11/2025 - PM]: Created jetank_description and jetank_simulation packages following ROS2 best practices. Refactored URDF files into dedicated description package. Implemented Gazebo simulation environment with basic world and launch files. Updated all dependencies and launch files for proper package integration.
+- [06/11/2025 - AM]: Documentation updated. All packages reviewed and readme reflects current state.
 - [30/10/2025]: Navigation package (jetank_navigation) in Phase 2 development - designing PointCloud2 to LaserScan conversion for SLAM integration.
 - [14/10/2025]: Core packages complete and functional. Stereo perception system operational with point cloud generation. Navigation package created.
 - [30/06/2025]: Initial package structure created, development environment configured.

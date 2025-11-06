@@ -27,7 +27,9 @@
   <exec_depend>joint_state_publisher</exec_depend>
   <exec_depend>jetank_perception</exec_depend>
   <exec_depend>jetank_navigation</exec_depend>
-  
+  <exec_depend>jetank_description</exec_depend>
+  <exec_depend>jetank_simulation</exec_depend>
+
   <!-- To use URDF/XACRO files -->
   <exec_depend>xacro</exec_depend>
   <exec_depend>urdf</exec_depend>
