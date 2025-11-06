@@ -32,147 +32,287 @@ For recent development logs and notes, see the [Updates](#updates) section.
 
 ## 🛠️ Technologies & Skills Demonstrated
 
-- **ROS Melodic**: Full node architecture with publishers/subscribers
-- **NVIDIA Jetson Nano**: Optimized for the B01 Developer Kit
-- **Python**: Clean, modular codebase for hardware interfacing
-- **C++**: Performance-critical components
-- **Computer Vision**: OpenCV and TensorFlow Lite integration
-- **SLAM**: Implementation for autonomous navigation
-- **Hardware Integration**: Bridging Jetson Nano with ROS ecosystem
+- **ROS2 Humble**: Full node architecture with publishers/subscribers
+- **NVIDIA Jetson Orin Nano Super**: Optimized for the Developer Kit
+- **Python**: Clean, modular codebase for hardware interfacing and integration
+- **C++**: Performance-critical components (motor control, perception pipeline)
+- **Computer Vision**: OpenCV with GPU acceleration for stereo vision
+- **Point Cloud Processing**: PCL for 3D data processing and filtering
+- **SLAM**: PointCloud2 to LaserScan conversion for navigation stack
+- **Hardware Integration**: Bridging Jetson Orin Nano with ROS2 ecosystem
 
 ## 🏗️ System Architecture
 
-To be refined.
 ```
-├── jetank_driver/
-│   ├── scripts/        # Python driver scripts for hardware control
-│   ├── launch/         # Launch files for the robot
-│   └── src/            # C++ source code for performance-critical components
+├── jetank_motor_control/          (C++/ament_cmake)
+│   ├── include/motor.hpp          # Motor control library header
+│   └── src/motor/
+│       ├── motor.cpp              # GPIO-based motor control implementation
+│       └── robot_controller.cpp   # ROS2 motor controller node
 │
-├── jetank_description/
-│   ├── urdf/           # Robot model description files
-│   ├── meshes/         # 3D models for visualization
-│   └── launch/         # URDF launch files
+├── jetank_perception/             (C++/ament_cmake)
+│   ├── include/jetank_perception/ # Header-only stereo processing strategies
+│   │   ├── camera_interface.hpp  # Camera abstraction (CSI/USB/Virtual)
+│   │   ├── stereo_processing_strategy.hpp  # Stereo matching algorithms
+│   │   └── quality_monitor.hpp   # Quality monitoring and filtering
+│   ├── src/
+│   │   ├── stereo_camera_node.cpp  # Main stereo perception node
+│   │   └── single_camera.cpp       # Single camera testing node
+│   ├── config/
+│   │   ├── stereo_camera_config.yaml  # Complete stereo configuration
+│   │   └── calibration/           # Camera calibration files
+│   └── launch/
+│       ├── stereo_camera.launch.py  # Stereo perception system
+│       └── single_camera.launch.py  # Single camera testing
 │
-├── jetank_navigation/
-│   ├── config/         # Navigation stack configuration
-│   ├── launch/         # Launch files for autonomous navigation
-│   └── maps/           # Saved environment maps
+├── jetank_navigation/             (C++/ament_cmake) [In Development - Phase 2]
+│   ├── include/jetank_navigation/
+│   │   └── utils.hpp              # Navigation utility functions
+│   ├── config/
+│   │   └── laser_data.yaml        # LaserScan conversion configuration
+│   ├── LEARNING_PLAN.md           # Phased learning approach
+│   └── PROGRESS.md                # Current development status
+│   # Purpose: Convert PointCloud2 to LaserScan for SLAM navigation
 │
-└── jetank_sock_collector/
-    ├── perception/     # Computer vision for sock detection
-    ├── planning/       # Task planning for collection routine
-    └── manipulation/   # Gripper control for sock collection
+└── jetank_ros_main/               (Python/ament_python)
+    ├── launch/
+    │   ├── main.launch.py         # Full system integration
+    │   ├── motor_controller.launch.py  # Motor control
+    │   ├── stereo_camera.launch.py     # Stereo perception
+    │   └── urdf.launch.py         # Robot model visualization
+    ├── config/
+    │   └── motor_params.yaml      # Motor control parameters
+    └── jetank_ros2_main/          # Python package for integration scripts
 ```
 
 ## 📋 Project Roadmap & TODO
 
-- [x] Set up ROS package structure
-- [x] Update hardware
+### Core Infrastructure
+- [x] Set up ROS2 workspace structure
+- [x] Update hardware (Jetson Orin Nano Super + IMX219-83 Stereo Camera)
 - [x] Complete URDF model for visualization in RViz
+- [x] Split functionality into separate packages
 
-Drive control
-- [x] Implement basic motor control through ROS
+### Motor Control (jetank_motor_control)
+- [x] Implement GPIO-based motor control library
+- [x] Create ROS2 motor controller node
+- [x] Integrate with ROS2 control framework
 
-Arm control
-- [ ] Develop servo control interface
+### Perception (jetank_perception)
+- [x] Implement stereo camera node with CSI/USB support
+- [x] Create camera calibration system
+- [x] Develop point cloud generation pipeline
+- [x] Add GPU-accelerated stereo matching
+- [x] Implement quality monitoring and filtering
+- [x] Optimize for real-time performance on Jetson
+
+### Navigation (jetank_navigation) [In Progress - Phase 2]
+- [x] Design node architecture for PointCloud2 to LaserScan conversion
+- [x] Create utility functions (FOV calculations, angle conversions)
+- [x] Research camera specifications (IMX219-83: 73° horizontal FOV)
+- [ ] Complete configuration parameters (laser angles, QoS settings)
+- [ ] Implement PointCloud2 to LaserScan conversion node
+- [ ] Integrate with ROS2 Navigation Stack (Nav2)
+- [ ] Implement SLAM for mapping and localization
+- [ ] Test autonomous navigation capabilities
+
+### Manipulation (Future)
+- [ ] Develop servo control interface for robot arm
 - [ ] Design and implement gripper attachment
-- [ ] Create MoveIt! config for the arm and gripper
+- [ ] Create MoveIt2 configuration for arm and gripper
+- [ ] Integrate manipulation with navigation
 
-Camera implementation
-- [x] Create camera node for video streaming
-- [x] Create camera calibration script
-- [x] Create camera node for point could generation
-- [x] Make compressed image for point cloud generation
-- [x] Optimize point cloud generation
-
-Vision implementation
-- [ ] Add item segemntation model
-- [ ] Create sock detection algorithm
-
-Autonomy implementation
-- [ ] Implement odometry for tracking robot movement(Might not be possible due to lack of sensors)
-- [ ] Integrate SLAM for autonomous navigation
+### Vision & AI (Future)
+- [ ] Add object segmentation model
+- [ ] Implement sock detection algorithm
+- [ ] Integrate vision pipeline with navigation
 - [ ] Develop autonomous sock collection behavior
-- [ ] Test and optimize in various environments
 
-Finishing up
-- [ ] Create comprehensive documentation and tutorials
-- [ ] Split package into seperate package based on function
+### Testing & Documentation
+- [ ] Create comprehensive documentation
+- [ ] Add unit tests for core components
+- [ ] Test system integration in various environments
+- [ ] Create usage tutorials and examples
 
 ## 🚀 Installation & Setup
 
-To be defined
+### Prerequisites
+- NVIDIA Jetson Orin Nano Super Developer Kit
+- Ubuntu 22.04 (JetPack 6.0+)
+- ROS2 Humble
 
-<!-- ```bash
-# Install ROS Melodic (on Ubuntu 18.04, compatible with Jetson Nano B01)
+### ROS2 Installation
+
+```bash
+# Install ROS2 Humble on Ubuntu 22.04
+sudo apt update && sudo apt install -y software-properties-common
+sudo add-apt-repository universe
+sudo apt update && sudo apt install curl -y
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
 sudo apt update
-sudo apt install ros-melodic-desktop-full
-sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
+sudo apt install -y ros-humble-desktop
 
-# Initialize and update rosdep
+# Install development tools
+sudo apt install -y ros-dev-tools python3-colcon-common-extensions
+
+# Initialize rosdep
 sudo rosdep init
 rosdep update
+```
 
-# Create and build catkin workspace
-mkdir -p ~/catkin_ws/src
-cd ~/catkin_ws/
-catkin_make
+### Workspace Setup
 
-# Add ROS environment to bashrc
-echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
-echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
-source ~/.bashrc
+```bash
+# Create ROS2 workspace
+mkdir -p ~/workspaces/ros2_ws/src
+cd ~/workspaces/ros2_ws
 
 # Clone this repository
-cd ~/catkin_ws/src/
-git clone https://github.com/kvgork/jetank_ROS.git
-cd ~/catkin_ws/
-catkin_make
+cd src
+git clone <repository-url> jetank_ros_main
+# Note: Adjust repository URL as needed
 
-# Install additional dependencies
-sudo apt install ros-melodic-joy ros-melodic-teleop-twist-joy ros-melodic-teleop-twist-keyboard ros-melodic-gmapping ros-melodic-navigation
+# Install dependencies
+cd ~/workspaces/ros2_ws
+rosdep install --from-paths src --ignore-src -r -y
 
-# Setup JeTank hardware interface
-cd ~/catkin_ws/src/jetank_ROS/setup
-sudo ./setup_hardware.sh
-``` -->
+# Build the workspace
+colcon build
+
+# Source the workspace
+source install/setup.bash
+echo "source ~/workspaces/ros2_ws/install/setup.bash" >> ~/.bashrc
+```
+
+### Hardware Dependencies
+
+```bash
+# Install GPIO library for motor control
+sudo apt install -y libgpiod-dev
+
+# Install camera and vision dependencies
+sudo apt install -y \
+    libopencv-dev \
+    libpcl-dev \
+    ros-humble-cv-bridge \
+    ros-humble-image-transport \
+    ros-humble-camera-info-manager \
+    ros-humble-pcl-conversions
+
+# Install GStreamer for Jetson camera support
+sudo apt install -y \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad
+
+# Install navigation dependencies (when ready)
+sudo apt install -y \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup
+```
 
 ## 📁 Usage
 
-To be defined
-<!-- 
+### Build and Source
+
 ```bash
-# Launch the basic JeTank ROS driver
-roslaunch jetank_driver jetank_base.launch
+# Build all packages
+cd ~/workspaces/ros2_ws
+colcon build
 
-# Launch with camera and visualization
-roslaunch jetank_driver jetank_full.launch
+# Source the workspace
+source install/setup.bash
+```
 
-# Launch teleop control with keyboard
-roslaunch jetank_driver jetank_teleop.launch
+### Launch Individual Components
 
-# Launch autonomous navigation (when implemented)
-roslaunch jetank_navigation jetank_nav.launch
+```bash
+# Launch stereo camera perception system
+ros2 launch jetank_perception stereo_camera.launch.py
 
-# Launch sock collection demo (when implemented)
-roslaunch jetank_sock_collector sock_collector.launch
-``` -->
+# Launch single camera for testing
+ros2 launch jetank_perception single_camera.launch.py
+
+# Launch motor controller
+ros2 launch jetank_ros_main motor_controller.launch.py
+
+# Launch URDF visualization in RViz
+ros2 launch jetank_ros_main urdf.launch.py
+```
+
+### Launch Full System
+
+```bash
+# Launch complete JeTank system (when ready)
+ros2 launch jetank_ros_main main.launch.py
+```
+
+### Run Individual Nodes
+
+```bash
+# Run stereo camera node
+ros2 run jetank_perception stereo_camera_node
+
+# Run robot controller
+ros2 run jetank_motor_control robot_controller
+```
+
+### Monitor Topics
+
+```bash
+# List all active topics
+ros2 topic list
+
+# View stereo camera point cloud
+ros2 topic echo /stereo_camera/points
+
+# Monitor motor commands
+ros2 topic echo /cmd_vel
+
+# Check LaserScan data (when navigation is ready)
+ros2 topic echo /scan
+```
 
 ## 🎯 Technical Challenges & Solutions
 
-### Challenge 1: Hardware Abstraction Layer
-**Solution**: Created modular drivers that abstract the JeTank hardware details, making them accessible through standard ROS interfaces.
+### Challenge 1: Stereo Vision on Embedded Hardware
+**Problem**: Real-time stereo processing at 30fps with limited computational resources.
+**Solution**:
+- Implemented header-only strategy pattern for compile-time optimization
+- Leveraged GPU acceleration when available (CUDA/OpenCV)
+- Created efficient point cloud filtering and quality monitoring
+- Configurable processing modes (CPU fallback for testing)
 
-### Challenge 2: Resource Constraints on Jetson Orin Nano
-**Solution**: Optimized code for the Jetson Nano's ARM architecture and 8GB memory, prioritizing efficient algorithms and parallel processing where possible.
+### Challenge 2: Hardware Abstraction for Camera Interfaces
+**Problem**: Supporting multiple camera types (CSI native, USB fallback, virtual for testing).
+**Solution**:
+- Created flexible camera interface abstraction layer
+- GStreamer pipelines optimized for Jetson hardware acceleration
+- Automatic fallback mechanisms for development environments
+- Unified configuration system across camera types
 
-### Challenge 3: ROS2 Humble Compatibility
-**Solution**: Ensured all packages and dependencies are compatible with ROS2 Humble and the Ubuntu 22 environment on the Jetson Nano.
+### Challenge 3: PointCloud2 to LaserScan Conversion for SLAM
+**Problem**: Nav2 SLAM algorithms require LaserScan data, but stereo cameras produce PointCloud2.
+**Solution** (In Progress):
+- Designing efficient 3D-to-2D projection algorithm
+- Calculating proper coordinate frame transformations
+- Implementing noise filtering and quality validation
+- Matching QoS settings across the perception pipeline
+
+### Challenge 4: GPIO Motor Control in ROS2
+**Problem**: Integrating low-level GPIO hardware control with ROS2 control framework.
+**Solution**:
+- Created libgpiod-based motor control library
+- Integrated with ROS2 control interfaces
+- Proper hardware abstraction for different GPIO controllers
+- Safe shutdown and error handling mechanisms
 
 ## 👨‍💻 About the Developer
 
-This project aims to get more experience in robotics software integration, ROS architecture, Computer vision, and practical autonomous systems. By transforming a consumer robot kit into a fully ROS-compatible platform with advanced capabilities, I hope to increase my ability to bridge hardware and software in complex robotic systems, particularly on resource-constrained embedded platforms like the Jetson Nano.
+This project aims to gain experience in robotics software integration, ROS2 architecture, computer vision, and practical autonomous systems. By transforming a consumer robot kit into a fully ROS2-compatible platform with advanced capabilities, this work demonstrates the ability to bridge hardware and software in complex robotic systems, particularly on embedded platforms like the NVIDIA Jetson Orin Nano Super.
 
 ## 📝 License
 
@@ -187,6 +327,8 @@ This project is licensed under the GNU GPLv3 License - see the [LICENSE](LICENSE
 
 ## Updates
 
-- [14/10/2025]: Initial packages are done. Everything is ported from the ROS1 packages. Added point cloud generation. Starting on navigation. 
-- [30/06/2025]: Initial package is online, dev setup and links are made
-- [29/06/2025]: Got my hand on a orin nano super developer kit, so will be fitting that in the frame at start over on ROS2! 
+- [06/11/2025]: Documentation updated. All packages reviewed and readme reflects current state.
+- [30/10/2025]: Navigation package (jetank_navigation) in Phase 2 development - designing PointCloud2 to LaserScan conversion for SLAM integration.
+- [14/10/2025]: Core packages complete and functional. Stereo perception system operational with point cloud generation. Navigation package created.
+- [30/06/2025]: Initial package structure created, development environment configured.
+- [29/06/2025]: Hardware upgrade to Jetson Orin Nano Super Developer Kit. Migration from ROS1 to ROS2 Humble initiated. 
