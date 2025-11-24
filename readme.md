@@ -47,46 +47,66 @@ For recent development logs and notes, see the [Updates](#updates) section.
 
 ```
 ├── jetank_motor_control/          (C++/ament_cmake)
-│   ├── include/motor.hpp          # Motor control library header
+│   ├── include/jetank_motor_control/
+│   │   ├── motor.hpp              # Motor control library header
+│   │   └── robot_controller.hpp   # Robot controller node header
 │   └── src/motor/
 │       ├── motor.cpp              # GPIO-based motor control implementation
 │       └── robot_controller.cpp   # ROS2 motor controller node
+│   # Purpose: GPIO-based motor control and hardware interface
 │
 ├── jetank_perception/             (C++/ament_cmake)
-│   ├── include/jetank_perception/ # Header-only stereo processing strategies
+│   ├── include/jetank_perception/ # Header-only library design
 │   │   ├── camera_interface.hpp  # Camera abstraction (CSI/USB/Virtual)
-│   │   ├── stereo_processing_strategy.hpp  # Stereo matching algorithms
-│   │   └── quality_monitor.hpp   # Quality monitoring and filtering
+│   │   ├── csi_camera.hpp         # Jetson CSI camera (GStreamer)
+│   │   ├── usb_camera.hpp         # USB camera (V4L2)
+│   │   ├── virtual_camera.hpp     # Virtual camera (testing)
+│   │   ├── stereo_processor.hpp   # Stereo matching interface
+│   │   ├── stereo_bm_processor.hpp   # Block Matching algorithm
+│   │   ├── stereo_sgbm_processor.hpp # Semi-Global Block Matching
+│   │   ├── camera_calibration.hpp    # Calibration utilities
+│   │   ├── point_cloud_processor.hpp # Point cloud operations
+│   │   └── config_loader.hpp         # YAML config loader
 │   ├── src/
-│   │   ├── stereo_camera_node.cpp  # Main stereo perception node
-│   │   └── single_camera.cpp       # Single camera testing node
+│   │   ├── single_camera_node.cpp    # Single camera testing node
+│   │   ├── stereo_camera_node.cpp    # Stereo camera capture node
+│   │   ├── depth_estimation_node.cpp # Depth computation node
+│   │   └── point_cloud_node.cpp      # Point cloud generation node
 │   ├── config/
-│   │   ├── stereo_camera_config.yaml  # Complete stereo configuration
-│   │   └── calibration/           # Camera calibration files
-│   └── launch/
-│       ├── stereo_camera.launch.py  # Stereo perception system
-│       └── single_camera.launch.py  # Single camera testing
+│   │   ├── stereo_camera_config.yaml # Complete stereo configuration
+│   │   └── calibration/              # Camera calibration files
+│   └── docs/
+│       ├── minimum_range_calculation.md # Stereo range analysis
+│       ├── quality_diagnostics_guide.md # Quality monitoring guide
+│       └── imx219_83_optimal_settings.md # Camera optimization
+│   # Purpose: Stereo vision pipeline with GPU acceleration
 │
 ├── jetank_navigation/             (C++/ament_cmake) [In Development - Phase 2]
 │   ├── include/jetank_navigation/
 │   │   └── utils.hpp              # Navigation utility functions
+│   ├── src/
+│   │   └── laser_data_node.cpp    # PointCloud2 to LaserScan converter
 │   ├── config/
-│   │   └── laser_data.yaml        # LaserScan conversion configuration
+│   │   └── laser_data.yaml        # LaserScan conversion parameters
 │   ├── LEARNING_PLAN.md           # Phased learning approach
 │   └── PROGRESS.md                # Current development status
-│   # Purpose: Convert PointCloud2 to LaserScan for SLAM navigation
+│   # Purpose: Convert PointCloud2 to LaserScan for Nav2/SLAM integration
 │
 ├── jetank_description/            (C++/ament_cmake)
 │   ├── urdf/                      # Robot description files
 │   │   ├── jetank.xacro           # Main robot description
-│   │   ├── jetank_arm.xacro       # Arm configuration
-│   │   ├── jetank_camera.xacro    # Camera mounts
-│   │   ├── jetank_wheel.xacro     # Wheel definitions
-│   │   └── ...                    # Additional URDF components
+│   │   ├── jetank_arm.xacro       # 4-DOF arm configuration
+│   │   ├── jetank_camera.xacro    # Stereo camera mount
+│   │   ├── jetank_wheel.xacro     # Wheel and chassis definitions
+│   │   ├── jetank_gripper.xacro   # Gripper mechanism
+│   │   ├── jetank_parameters.xacro # Robot parameters
+│   │   ├── macros.xacro           # Reusable URDF macros
+│   │   ├── materials.xacro        # Material definitions
+│   │   └── properties.xacro       # Physical properties
 │   ├── meshes/                    # 3D mesh files (STL/DAE)
-│   ├── launch/                    # Description launch files
+│   ├── launch/                    # Visualization launch files
 │   └── config/                    # Robot configuration parameters
-│   # Purpose: Centralized robot description following ROS2 best practices
+│   # Purpose: Centralized URDF/xacro robot model following ROS2 best practices
 │
 ├── jetank_simulation/             (C++/ament_cmake)
 │   ├── worlds/                    # Gazebo world files
@@ -94,14 +114,16 @@ For recent development logs and notes, see the [Updates](#updates) section.
 │   ├── launch/
 │   │   └── gazebo.launch.py       # Gazebo simulation launcher
 │   ├── config/                    # Simulation configuration
-│   └── models/                    # Custom Gazebo models
+│   ├── models/                    # Custom Gazebo models
+│   ├── include/                   # Simulation headers
+│   └── src/                       # Simulation source files
 │   # Purpose: Gazebo simulation environment for testing and development
 │
 └── jetank_ros_main/               (Python/ament_python)
     ├── launch/
     │   ├── main.launch.py         # Full system integration
-    │   ├── motor_controller.launch.py  # Motor control
-    │   ├── stereo_camera.launch.py     # Stereo perception
+    │   ├── motor_controller.launch.py  # Motor control subsystem
+    │   ├── stereo_camera.launch.py     # Stereo perception pipeline
     │   └── urdf.launch.py         # Robot model visualization
     ├── config/
     │   └── motor_params.yaml      # Motor control parameters
@@ -155,11 +177,14 @@ For recent development logs and notes, see the [Updates](#updates) section.
 - [x] Design node architecture for PointCloud2 to LaserScan conversion
 - [x] Create utility functions (FOV calculations, angle conversions)
 - [x] Research camera specifications (IMX219-83: 73° horizontal FOV)
-- [ ] Complete configuration parameters (laser angles, QoS settings)
-- [ ] Implement PointCloud2 to LaserScan conversion node
+- [x] Create laser_data_node.cpp implementation structure
+- [x] Define configuration parameters in laser_data.yaml
+- [ ] Complete and test PointCloud2 to LaserScan conversion node
 - [ ] Integrate with ROS2 Navigation Stack (Nav2)
-- [ ] Implement SLAM for mapping and localization
-- [ ] Test autonomous navigation capabilities
+- [ ] Configure Nav2 parameters for JeTank platform
+- [ ] Implement SLAM for mapping and localization (slam_toolbox or nav2_slam)
+- [ ] Test autonomous navigation capabilities in simulation
+- [ ] Test autonomous navigation on real hardware
 
 ### Manipulation (Future)
 - [ ] Develop servo control interface for robot arm
@@ -283,11 +308,8 @@ source install/setup.bash
 ### Launch Individual Components
 
 ```bash
-# Launch stereo camera perception system
-ros2 launch jetank_perception stereo_camera.launch.py
-
-# Launch single camera for testing
-ros2 launch jetank_perception single_camera.launch.py
+# Launch stereo camera perception system (complete pipeline)
+ros2 launch jetank_ros_main stereo_camera.launch.py
 
 # Launch motor controller
 ros2 launch jetank_ros_main motor_controller.launch.py
@@ -317,6 +339,15 @@ ros2 launch jetank_simulation gazebo.launch.py
 ```bash
 # Run stereo camera node
 ros2 run jetank_perception stereo_camera_node
+
+# Run single camera node (testing)
+ros2 run jetank_perception single_camera_node
+
+# Run depth estimation node
+ros2 run jetank_perception depth_estimation_node
+
+# Run point cloud generation node
+ros2 run jetank_perception point_cloud_node
 
 # Run robot controller
 ros2 run jetank_motor_control robot_controller
@@ -389,6 +420,7 @@ This project is licensed under the GNU GPLv3 License - see the [LICENSE](LICENSE
 
 ## Updates
 
+- [24/11/2025]: Comprehensive documentation update. All six packages documented with complete file structure, architecture details, and accurate launch instructions. README now reflects actual implementation state across all packages.
 - [06/11/2025 - PM]: Created jetank_description and jetank_simulation packages following ROS2 best practices. Refactored URDF files into dedicated description package. Implemented Gazebo simulation environment with basic world and launch files. Updated all dependencies and launch files for proper package integration.
 - [06/11/2025 - AM]: Documentation updated. All packages reviewed and readme reflects current state.
 - [30/10/2025]: Navigation package (jetank_navigation) in Phase 2 development - designing PointCloud2 to LaserScan conversion for SLAM integration.
