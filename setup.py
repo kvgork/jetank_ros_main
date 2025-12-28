@@ -15,7 +15,8 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'urdf'), glob('urdf/*.urdf')),
-        (os.path.join('share', package_name, 'urdf'), glob('urdf/*.xacro'))
+        (os.path.join('share', package_name, 'urdf'), glob('urdf/*.xacro')),
+        (os.path.join('share', package_name, 'worlds'), glob('worlds/*.sdf'))
         # ('share/jetank_motor_control/config', ['config/motor_params.yaml'])
     ],
     install_requires=['setuptools'],
@@ -27,6 +28,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'test_drive = jetank_ros2_main.scripts.test_drive:main',
+            'test_cameras = jetank_ros2_main.scripts.test_cameras:main',
         ],
     },
 )
