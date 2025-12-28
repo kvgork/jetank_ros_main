@@ -1,29 +1,29 @@
 repositories:
   jetank_motor_control:
     type: git
-    url: https://github.com/kvgork/jetank_motor_control.git
+    url: git@github.com:kvgork/jetank_motor_control.git
     version: main
   jetank_perception:
     type: git
-    url: https://github.com/kvgork/jetank_perception.git
+    url: git@github.com:kvgork/jetank_perception.git
     version: main
   jetank_navigation:
     type: git
-    url: https://github.com/kvgork/jetank_navigation.git
+    url: git@github.com:kvgork/jetank_navigation.git
     version: main
   jetank_description:
     type: git
-    url: https://github.com/kvgork/jetank_description.git
+    url: git@github.com:kvgork/jetank_description.git
     version: main
   jetank_simulation:
     type: git
-    url: https://github.com/kvgork/jetank_simulation.git
+    url: git@github.com:kvgork/jetank_simulation.git
     version: main
   jetank_moveit_config:
     type: git
-    url: https://github.com/kvgork/jetank_moveit_config.git
+    url: git@github.com:kvgork/jetank_moveit_config.git
     version: main
   jetank_ros_main:
     type: git
-    url: https://github.com/kvgork/jetank_ros_main.git
+    url: git@github.com:kvgork/jetank_ros_main.git
     version: main
