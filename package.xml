@@ -1,36 +1,38 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>jetank_ros2_main</name>
+  <name>jetank_ros_main</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Main integration package for JeTank AI robot platform</description>
   <maintainer email="gorkom.projects@gmail.com">koen</maintainer>
   <license>TODO: License declaration</license>
 
+  <buildtool_depend>ament_python</buildtool_depend>
+
   <depend>rclpy</depend>
-  <depend>os</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
 
-  <!-- Runtime dependencies for launch files -->
+  <!-- Launch system dependencies -->
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>launch_xml</exec_depend>
   <exec_depend>launch_yaml</exec_depend>
-  
-  <!-- Dependencies on the packages to launch -->
-  <exec_depend>motor_servo_controller</exec_depend>
+
+  <!-- JeTank package dependencies - ensures all packages are built together -->
+  <depend>jetank_motor_control</depend>
+  <depend>jetank_perception</depend>
+  <depend>jetank_navigation</depend>
+  <depend>jetank_description</depend>
+  <depend>jetank_simulation</depend>
+  <depend>jetank_moveit_config</depend>
+
+  <!-- ROS2 standard packages -->
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>joint_state_publisher</exec_depend>
-  <exec_depend>jetank_perception</exec_depend>
-  <exec_depend>jetank_navigation</exec_depend>
-  <exec_depend>jetank_description</exec_depend>
-  <exec_depend>jetank_simulation</exec_depend>
-
-  <!-- To use URDF/XACRO files -->
   <exec_depend>xacro</exec_depend>
   <exec_depend>urdf</exec_depend>
 
