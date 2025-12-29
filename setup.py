@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = 'jetank_ros2_main'
+package_name = 'jetank_ros_main'
 
 setup(
     name=package_name,
