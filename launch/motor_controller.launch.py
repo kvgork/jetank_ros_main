@@ -14,7 +14,7 @@ def generate_launch_description():
     
     # Declare launch arguments
     config = os.path.join(
-        get_package_share_directory('jetank_ros2_main'),
+        get_package_share_directory('jetank_ros_main'),
         'config',
         'motor_params.yaml'
     )
