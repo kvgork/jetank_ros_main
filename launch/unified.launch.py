@@ -82,13 +82,13 @@ def generate_launch_description():
 
     declare_enable_navigation = DeclareLaunchArgument(
         'enable_navigation',
-        default_value='true',
+        default_value='false',
         description='Enable navigation stack (SLAM/Nav2)'
     )
 
     declare_enable_moveit = DeclareLaunchArgument(
         'enable_moveit',
-        default_value='true',
+        default_value='false',
         description='Enable MoveIt2 arm control'
     )
 
@@ -124,7 +124,9 @@ def generate_launch_description():
         name='world_to_base_footprint_tf',
         arguments=['0', '0', '0', '0', '0', '0', 'world', 'base_footprint'],
         parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     # ============================================================================
@@ -195,7 +197,9 @@ def generate_launch_description():
             ]),
             {'use_sim_time': use_sim_time}
         ],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     # Controller spawners (delayed start for proper initialization)
@@ -208,7 +212,9 @@ def generate_launch_description():
             '--controller-manager', '/controller_manager'
         ],
         parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     arm_controller_spawner = Node(
@@ -220,7 +226,9 @@ def generate_launch_description():
             '--controller-manager', '/controller_manager'
         ],
         parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     gripper_controller_spawner = Node(
@@ -232,7 +240,9 @@ def generate_launch_description():
             '--controller-manager', '/controller_manager'
         ],
         parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     # MoveIt2 move_group (motion planning server)
@@ -245,7 +255,9 @@ def generate_launch_description():
             moveit_config.to_dict(),
             {'use_sim_time': use_sim_time}
         ],
-        condition=IfCondition(enable_moveit)
+        condition=IfCondition(PythonExpression([
+            "'", enable_moveit, "' == 'true'"
+        ]))
     )
 
     # ============================================================================
@@ -259,8 +271,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                enable_navigation,
-                " and '", navigation_mode, "' == 'slam'"
+                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'slam'"
             ])
         ),
         launch_arguments={'use_sim_time': use_sim_time}.items()
@@ -273,8 +284,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                enable_navigation,
-                " and '", navigation_mode, "' == 'nav2'"
+                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'nav2'"
             ])
         ),
         launch_arguments={
