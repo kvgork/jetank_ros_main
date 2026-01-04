@@ -19,7 +19,7 @@ def generate_launch_description():
     urdf_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('jetank_ros2_main'),
+                FindPackageShare('jetank_ros_main'),
                 'launch',
                 'urdf.launch.py'
             ])
@@ -33,7 +33,7 @@ def generate_launch_description():
     motor_controller_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('jetank_ros2_main'),
+                FindPackageShare('jetank_ros_main'),
                 'launch',
                 'motor_controller.launch.py'
             ])
