@@ -52,43 +52,17 @@ Visualization Manager:
       Marker Scale: 0.3
 
     # ========================================
-    # CAMERA & PERCEPTION
+    # CAMERA & PERCEPTION (Compressed only for bandwidth)
     # ========================================
     - Class: rviz_default_plugins/Image
-      Name: Left Camera (Raw)
-      Topic: /stereo_camera/left/image_raw
-      Transport: raw
-      Enabled: false
-
-    - Class: rviz_default_plugins/Image
-      Name: Left Camera (Compressed)
-      Topic: /stereo_camera/left/image_raw
-      Transport: compressed
+      Name: Left Camera
+      Topic: /stereo_camera/left/image_raw/compressed
       Enabled: true
 
     - Class: rviz_default_plugins/Image
-      Name: Right Camera (Raw)
-      Topic: /stereo_camera/right/image_raw
-      Transport: raw
-      Enabled: false
-
-    - Class: rviz_default_plugins/Image
-      Name: Right Camera (Compressed)
-      Topic: /stereo_camera/right/image_raw
-      Transport: compressed
+      Name: Right Camera
+      Topic: /stereo_camera/right/image_raw/compressed
       Enabled: true
-
-    - Class: rviz_default_plugins/Image
-      Name: Left Rectified (Compressed)
-      Topic: /stereo_camera/left/image_rect
-      Transport: compressed
-      Enabled: false
-
-    - Class: rviz_default_plugins/Image
-      Name: Right Rectified (Compressed)
-      Topic: /stereo_camera/right/image_rect
-      Transport: compressed
-      Enabled: false
 
     - Class: rviz_default_plugins/Image
       Name: Depth Image
