@@ -49,6 +49,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from moveit_configs_utils import MoveItConfigsBuilder
 
@@ -210,7 +211,10 @@ def generate_launch_description():
         name='ros2_control_node',
         output='screen',
         parameters=[
-            moveit_config.robot_description,
+            {'robot_description': ParameterValue(
+                moveit_config.robot_description['robot_description'],
+                value_type=str
+            )},
             PathJoinSubstitution([
                 FindPackageShare('jetank_motor_control'),
                 'config',
@@ -267,13 +271,19 @@ def generate_launch_description():
     )
 
     # MoveIt2 move_group (motion planning server)
+    # Wrap XML string parameters so launch_ros doesn't try to parse them as YAML
+    moveit_params = moveit_config.to_dict()
+    for xml_key in ('robot_description', 'robot_description_semantic'):
+        if xml_key in moveit_params and isinstance(moveit_params[xml_key], str):
+            moveit_params[xml_key] = ParameterValue(moveit_params[xml_key], value_type=str)
+
     move_group_node = Node(
         package='moveit_ros_move_group',
         executable='move_group',
         name='move_group',
         output='screen',
         parameters=[
-            moveit_config.to_dict(),
+            moveit_params,
             {'use_sim_time': use_sim_time}
         ],
         condition=IfCondition(PythonExpression([
