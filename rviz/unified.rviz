@@ -47,6 +47,10 @@ Visualization Manager:
           Value: true
         camera_right_link:
           Value: true
+        imu_link:
+          Value: true
+        laser:
+          Value: true
       Show Axes: true
       Show Names: true
       Marker Scale: 0.3
@@ -140,6 +144,16 @@ Visualization Manager:
       Topic: /local_costmap/published_footprint
       Color: 0; 255; 255
       Alpha: 1.0
+      Enabled: true
+
+    # ========================================
+    # IMU
+    # ========================================
+    - Class: rviz_default_plugins/Axes
+      Name: IMU Frame
+      Reference Frame: imu_link
+      Length: 0.1
+      Radius: 0.01
       Enabled: true
 
     # ========================================

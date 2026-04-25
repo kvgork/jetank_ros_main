@@ -73,6 +73,7 @@ def generate_launch_description():
     enable_moveit = LaunchConfiguration('enable_moveit')
     navigation_mode = LaunchConfiguration('navigation_mode')
     map_file = LaunchConfiguration('map_file')
+    lidar_source = LaunchConfiguration('lidar_source')
 
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
@@ -105,6 +106,12 @@ def generate_launch_description():
         description='Full path to map YAML file (required for nav2 mode)'
     )
 
+    declare_lidar_source = DeclareLaunchArgument(
+        'lidar_source',
+        default_value='rplidar',
+        description='LiDAR source: rplidar (C1M1 hardware) or pointcloud (stereo camera)'
+    )
+
     # ============================================================================
     # LAYER 1: ROBOT DESCRIPTION
     # ============================================================================
@@ -114,7 +121,12 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_main, 'launch', 'urdf.launch.py')
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items()
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'use_rplidar': PythonExpression(
+                ["'true' if '", lidar_source, "' == 'rplidar' else 'false'"]
+            )
+        }.items()
     )
 
     # Static TF: world → base_footprint (MoveIt2 virtual joint)
@@ -151,11 +163,20 @@ def generate_launch_description():
         }.items()
     )
 
-    # Laser scan converter (PointCloud2 → LaserScan)
+    # IMU (ICM-20948 on Waveshare IMX219-83 Stereo Camera module)
+    imu_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_jetank_navigation, 'launch', 'imu.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items()
+    )
+
+    # Laser scan source: C1M1 rplidar hardware or pointcloud conversion
     laser_scan_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_navigation, 'launch', 'laser_scan_converter.launch.py')
-        )
+        ),
+        launch_arguments={'lidar_source': lidar_source}.items()
     )
 
     # ============================================================================
@@ -305,6 +326,8 @@ def generate_launch_description():
             '  Use Sim Time: ', use_sim_time, '\n',
             '  Navigation: ', enable_navigation, ' (', navigation_mode, ')\n',
             '  MoveIt2: ', enable_moveit, '\n',
+            '  LiDAR Source: ', lidar_source, '\n',
+            '  IMU: ICM-20948 (imu/data_raw, imu/magnetic_field)\n',
             '  Map File: ', map_file, '\n',
             '========================================\n'
         ]
@@ -322,6 +345,7 @@ def generate_launch_description():
     ld.add_action(declare_enable_moveit)
     ld.add_action(declare_navigation_mode)
     ld.add_action(declare_map_file)
+    ld.add_action(declare_lidar_source)
 
     # Launch info
     ld.add_action(launch_info)
@@ -333,6 +357,7 @@ def generate_launch_description():
     # Layer 2: Hardware interfaces
     ld.add_action(motor_launch)
     ld.add_action(camera_launch)
+    ld.add_action(imu_launch)
     ld.add_action(laser_scan_launch)
 
     # Layer 3: MoveIt2 (conditional)
