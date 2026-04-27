@@ -29,6 +29,7 @@
   <depend>jetank_description</depend>
   <depend>jetank_simulation</depend>
   <depend>jetank_moveit_config</depend>
+  <depend>jetank_web_control</depend>
 
   <!-- ROS2 standard packages -->
   <exec_depend>robot_state_publisher</exec_depend>

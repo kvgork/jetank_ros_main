@@ -7,22 +7,28 @@ Launches integrated system with:
   - Motor control (base mobility + odometry)
   - Stereo perception (depth + point cloud)
   - Laser scan converter (navigation sensor)
+  - Web control interface (optional, browser-based remote control)
   - MoveIt2 arm control (optional, manipulation)
   - Navigation stack (optional, SLAM or Nav2)
 
 Launch arguments:
-  use_sim_time: Use simulation clock (default: false)
-  enable_navigation: Enable Nav2/SLAM (default: true)
-  enable_moveit: Enable MoveIt2 arm control (default: true)
-  navigation_mode: 'slam' or 'nav2' (default: 'slam')
-  map_file: Map YAML for nav2 mode (default: '')
+  use_sim_time:       Use simulation clock (default: false)
+  enable_web_control: Enable browser remote control (default: true)
+  web_port:           Port for web control server (default: 8080)
+  enable_navigation:  Enable Nav2/SLAM (default: false)
+  enable_moveit:      Enable MoveIt2 arm control (default: false)
+  navigation_mode:    'slam' or 'nav2' (default: 'slam')
+  map_file:           Map YAML for nav2 mode (default: '')
 
 Usage:
-  # Full system (hardware):
+  # Full system (hardware) with web control:
   ros2 launch jetank_ros_main unified.launch.py
 
-  # Full system (simulation):
-  ros2 launch jetank_ros_main unified.launch.py use_sim_time:=true
+  # Disable web control:
+  ros2 launch jetank_ros_main unified.launch.py enable_web_control:=false
+
+  # Custom web port:
+  ros2 launch jetank_ros_main unified.launch.py web_port:=9090
 
   # Base mobility only (no navigation/arm):
   ros2 launch jetank_ros_main unified.launch.py \\
@@ -31,10 +37,6 @@ Usage:
   # Navigation with existing map:
   ros2 launch jetank_ros_main unified.launch.py \\
     navigation_mode:=nav2 map_file:=/path/to/map.yaml
-
-  # Arm control only (no navigation):
-  ros2 launch jetank_ros_main unified.launch.py \\
-    enable_navigation:=false enable_moveit:=true
 """
 
 import os
@@ -70,6 +72,8 @@ def generate_launch_description():
     # ============================================================================
 
     use_sim_time = LaunchConfiguration('use_sim_time')
+    enable_web_control = LaunchConfiguration('enable_web_control')
+    web_port = LaunchConfiguration('web_port')
     enable_navigation = LaunchConfiguration('enable_navigation')
     enable_moveit = LaunchConfiguration('enable_moveit')
     navigation_mode = LaunchConfiguration('navigation_mode')
@@ -78,6 +82,18 @@ def generate_launch_description():
         'use_sim_time',
         default_value='false',
         description='Use simulation (Gazebo) clock if true'
+    )
+
+    declare_enable_web_control = DeclareLaunchArgument(
+        'enable_web_control',
+        default_value='true',
+        description='Enable browser-based web control interface'
+    )
+
+    declare_web_port = DeclareLaunchArgument(
+        'web_port',
+        default_value='8080',
+        description='Port for the web control HTTP server'
     )
 
     declare_enable_navigation = DeclareLaunchArgument(
@@ -129,6 +145,22 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(PythonExpression([
             "'", enable_moveit, "' == 'true'"
+        ]))
+    )
+
+    # ============================================================================
+    # WEB CONTROL (Conditional)
+    # ============================================================================
+
+    pkg_web_control = get_package_share_directory('jetank_web_control')
+
+    web_control_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_web_control, 'launch', 'web_control.launch.py')
+        ),
+        launch_arguments={'web_port': web_port}.items(),
+        condition=IfCondition(PythonExpression([
+            "'", enable_web_control, "' == 'true'"
         ]))
     )
 
@@ -322,12 +354,13 @@ def generate_launch_description():
             '\n========================================\n',
             'JeTank Unified System Launch\n',
             '========================================\n',
-            '  Use Sim Time: ', use_sim_time, '\n',
-            '  Navigation: ', enable_navigation, ' (', navigation_mode, ')\n',
-            '  MoveIt2: ', enable_moveit, '\n',
+            '  Use Sim Time:   ', use_sim_time, '\n',
+            '  Web Control:    ', enable_web_control, ' (port ', web_port, ')\n',
+            '  Navigation:     ', enable_navigation, ' (', navigation_mode, ')\n',
+            '  MoveIt2:        ', enable_moveit, '\n',
             '  LiDAR: RPLidar C1M1 (hardware)\n',
             '  IMU: ICM-20948 (imu/data_raw, imu/magnetic_field)\n',
-            '  Map File: ', map_file, '\n',
+            '  Map File:       ', map_file, '\n',
             '========================================\n'
         ]
     )
@@ -340,6 +373,8 @@ def generate_launch_description():
 
     # Declare arguments
     ld.add_action(declare_use_sim_time)
+    ld.add_action(declare_enable_web_control)
+    ld.add_action(declare_web_port)
     ld.add_action(declare_enable_navigation)
     ld.add_action(declare_enable_moveit)
     ld.add_action(declare_navigation_mode)
@@ -357,6 +392,9 @@ def generate_launch_description():
     ld.add_action(camera_launch)
     ld.add_action(imu_launch)
     ld.add_action(laser_scan_launch)
+
+    # Web control (conditional)
+    ld.add_action(web_control_launch)
 
     # Layer 3: MoveIt2 (conditional)
     ld.add_action(ros2_control_node)
