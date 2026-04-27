@@ -15,7 +15,7 @@ def generate_launch_description():
     
     # Declare launch arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
-    use_rplidar = LaunchConfiguration('use_rplidar', default='false')
+    use_rplidar = LaunchConfiguration('use_rplidar', default='true')
 
     # Read URDF content - process XACRO file
     robot_description_config = Command(['xacro', ' ', urdf_file, ' use_rplidar:=', use_rplidar])
@@ -28,7 +28,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'use_rplidar',
-            default_value='false',
+            default_value='true',
             description='Include RPLidar sensor in URDF (enables laser TF frame)'
         ),
         
