@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Main integration package for JeTank AI robot platform</description>
   <maintainer email="gorkom.projects@gmail.com">koen</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
