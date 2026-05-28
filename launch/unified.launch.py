@@ -44,8 +44,10 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
-    LogInfo
+    LogInfo,
+    OpaqueFunction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -53,7 +55,87 @@ from launch.substitutions import LaunchConfiguration, PythonExpression, PathJoin
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
-from moveit_configs_utils import MoveItConfigsBuilder
+
+
+def _build_moveit_actions(context, *args, **kwargs):
+    """Build the MoveIt2 actions on demand.
+
+    Loaded lazily (only when enable_moveit:=true) so the launch file does
+    not parse the SRDF / URDF / planning configs at import time. If
+    jetank_moveit_config is missing files, this raises only when MoveIt
+    is actually requested.
+    """
+    # Import inside the function so 'moveit_configs_utils' is not required
+    # for users who never enable MoveIt.
+    from moveit_configs_utils import MoveItConfigsBuilder
+
+    use_sim_time = LaunchConfiguration('use_sim_time')
+
+    pkg_jetank_description = get_package_share_directory('jetank_description')
+    robot_description_file = os.path.join(
+        pkg_jetank_description, 'urdf', 'jetank_ros2_control.urdf.xacro'
+    )
+
+    moveit_config = (
+        MoveItConfigsBuilder('jetank', package_name='jetank_moveit_config')
+        .robot_description(file_path=robot_description_file)
+        .robot_description_semantic(file_path='config/jetank.srdf')
+        .trajectory_execution(file_path='config/moveit_controllers.yaml')
+        .joint_limits(file_path='config/joint_limits.yaml')
+        .planning_pipelines(pipelines=['ompl'])
+        .planning_scene_monitor(
+            publish_robot_description=True,
+            publish_robot_description_semantic=True,
+        )
+        .pilz_cartesian_limits(file_path='config/pilz_cartesian_limits.yaml')
+        .to_moveit_configs()
+    )
+
+    ros2_control_node = Node(
+        package='controller_manager',
+        executable='ros2_control_node',
+        name='ros2_control_node',
+        output='screen',
+        parameters=[
+            {'robot_description': ParameterValue(
+                moveit_config.robot_description['robot_description'],
+                value_type=str,
+            )},
+            PathJoinSubstitution([
+                FindPackageShare('jetank_motor_control'),
+                'config',
+                'jetank_controllers.yaml',
+            ]),
+            {'use_sim_time': use_sim_time},
+        ],
+    )
+
+    spawners = [
+        Node(
+            package='controller_manager',
+            executable='spawner',
+            name=f'{controller}_spawner',
+            arguments=[controller, '--controller-manager', '/controller_manager'],
+            parameters=[{'use_sim_time': use_sim_time}],
+        )
+        for controller in ('joint_state_broadcaster', 'arm_controller', 'gripper_controller')
+    ]
+
+    # Wrap XML string parameters so launch_ros doesn't try to parse them as YAML.
+    moveit_params = moveit_config.to_dict()
+    for xml_key in ('robot_description', 'robot_description_semantic'):
+        if xml_key in moveit_params and isinstance(moveit_params[xml_key], str):
+            moveit_params[xml_key] = ParameterValue(moveit_params[xml_key], value_type=str)
+
+    move_group_node = Node(
+        package='moveit_ros_move_group',
+        executable='move_group',
+        name='move_group',
+        output='screen',
+        parameters=[moveit_params, {'use_sim_time': use_sim_time}],
+    )
+
+    return [ros2_control_node, *spawners, move_group_node]
 
 
 def generate_launch_description():
@@ -65,7 +147,7 @@ def generate_launch_description():
     pkg_jetank_main = get_package_share_directory('jetank_ros_main')
     pkg_jetank_perception = get_package_share_directory('jetank_perception')
     pkg_jetank_navigation = get_package_share_directory('jetank_navigation')
-    pkg_jetank_description = get_package_share_directory('jetank_description')
+    # jetank_description is only needed by the lazy MoveIt builder.
 
     # ============================================================================
     # LAUNCH ARGUMENTS
@@ -202,114 +284,17 @@ def generate_launch_description():
     )
 
     # ============================================================================
-    # LAYER 3: MOVEIT2 ARM CONTROL (Conditional)
+    # LAYER 3: MOVEIT2 ARM CONTROL (Conditional, lazy-loaded)
     # ============================================================================
+    # The MoveIt nodes are built inside _build_moveit_actions(), which is only
+    # invoked when enable_moveit:=true. That keeps MoveItConfigsBuilder (which
+    # reads + parses several SRDF/URDF/YAML files) out of import-time, so a
+    # missing or broken jetank_moveit_config does NOT prevent the base system
+    # from launching.
 
-    # MoveIt2 configuration
-    robot_description_file = os.path.join(
-        pkg_jetank_description, 'urdf', 'jetank_ros2_control.urdf.xacro'
-    )
-
-    moveit_config = (
-        MoveItConfigsBuilder('jetank', package_name='jetank_moveit_config')
-        .robot_description(file_path=robot_description_file)
-        .robot_description_semantic(file_path='config/jetank.srdf')
-        .trajectory_execution(file_path='config/moveit_controllers.yaml')
-        .joint_limits(file_path='config/joint_limits.yaml')
-        .planning_pipelines(pipelines=['ompl'])
-        .planning_scene_monitor(
-            publish_robot_description=True,
-            publish_robot_description_semantic=True
-        )
-        .pilz_cartesian_limits(file_path='config/pilz_cartesian_limits.yaml')
-        .to_moveit_configs()
-    )
-
-    # ros2_control node (hardware interface for arm)
-    ros2_control_node = Node(
-        package='controller_manager',
-        executable='ros2_control_node',
-        name='ros2_control_node',
-        output='screen',
-        parameters=[
-            {'robot_description': ParameterValue(
-                moveit_config.robot_description['robot_description'],
-                value_type=str
-            )},
-            PathJoinSubstitution([
-                FindPackageShare('jetank_motor_control'),
-                'config',
-                'jetank_controllers.yaml'
-            ]),
-            {'use_sim_time': use_sim_time}
-        ],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
-
-    # Controller spawners (delayed start for proper initialization)
-    joint_state_broadcaster_spawner = Node(
-        package='controller_manager',
-        executable='spawner',
-        name='joint_state_broadcaster_spawner',
-        arguments=[
-            'joint_state_broadcaster',
-            '--controller-manager', '/controller_manager'
-        ],
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
-
-    arm_controller_spawner = Node(
-        package='controller_manager',
-        executable='spawner',
-        name='arm_controller_spawner',
-        arguments=[
-            'arm_controller',
-            '--controller-manager', '/controller_manager'
-        ],
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
-
-    gripper_controller_spawner = Node(
-        package='controller_manager',
-        executable='spawner',
-        name='gripper_controller_spawner',
-        arguments=[
-            'gripper_controller',
-            '--controller-manager', '/controller_manager'
-        ],
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
-
-    # MoveIt2 move_group (motion planning server)
-    # Wrap XML string parameters so launch_ros doesn't try to parse them as YAML
-    moveit_params = moveit_config.to_dict()
-    for xml_key in ('robot_description', 'robot_description_semantic'):
-        if xml_key in moveit_params and isinstance(moveit_params[xml_key], str):
-            moveit_params[xml_key] = ParameterValue(moveit_params[xml_key], value_type=str)
-
-    move_group_node = Node(
-        package='moveit_ros_move_group',
-        executable='move_group',
-        name='move_group',
-        output='screen',
-        parameters=[
-            moveit_params,
-            {'use_sim_time': use_sim_time}
-        ],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
+    moveit_group = GroupAction(
+        [OpaqueFunction(function=_build_moveit_actions)],
+        condition=IfCondition(enable_moveit),
     )
 
     # ============================================================================
@@ -396,12 +381,8 @@ def generate_launch_description():
     # Web control (conditional)
     ld.add_action(web_control_launch)
 
-    # Layer 3: MoveIt2 (conditional)
-    ld.add_action(ros2_control_node)
-    ld.add_action(joint_state_broadcaster_spawner)
-    ld.add_action(arm_controller_spawner)
-    ld.add_action(gripper_controller_spawner)
-    ld.add_action(move_group_node)
+    # Layer 3: MoveIt2 (conditional, lazy-loaded - see _build_moveit_actions)
+    ld.add_action(moveit_group)
 
     # Layer 4: Navigation (conditional)
     ld.add_action(slam_launch)
