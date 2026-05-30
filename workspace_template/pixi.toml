@@ -1,0 +1,125 @@
+[workspace]
+name = "jetank-ros2-ws"
+version = "0.1.0"
+description = "JeTank AI robot — ROS2 workspace (RoboStack pixi environment)"
+authors = ["Koen van Gorkom <gorkom.projects@gmail.com>"]
+channels = [
+  "https://prefix.dev/robostack-staging",
+  "conda-forge",
+]
+# This workspace targets the Jetson Orin Nano Super (linux-aarch64) and
+# x86_64 Linux dev laptops (linux-64). The lock file pins exact builds for
+# both so `pixi install` resolves identically on either machine.
+platforms = ["linux-aarch64", "linux-64"]
+
+# ---------------------------------------------------------------------------
+# Tasks
+# Pixi is the only supported entrypoint for this workspace. Run everything
+# through `pixi run <task>` (or drop into the env with `pixi shell`).
+# ---------------------------------------------------------------------------
+
+[tasks]
+build = { cmd = "colcon build --symlink-install", description = "Build all packages (release)" }
+build-debug = { cmd = "colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Debug", description = "Build all packages with debug symbols" }
+build-perception = { cmd = "colcon build --symlink-install --packages-select jetank_perception", description = "Build perception only" }
+build-nav = { cmd = "colcon build --symlink-install --packages-select jetank_navigation", description = "Build navigation only" }
+build-motor = { cmd = "colcon build --symlink-install --packages-select jetank_motor_control", description = "Build motor control only" }
+test = { cmd = "colcon test", depends-on = ["build"], description = "Run colcon tests" }
+test-results = { cmd = "colcon test-result --verbose", description = "Show test results" }
+clean = { cmd = "rm -rf build install log", description = "Remove all build artifacts" }
+
+# Sourcing helper: every pixi shell auto-sources install/setup.bash if it exists.
+# This activation hook fires once when the env is entered.
+[activation]
+scripts = ["scripts/pixi-activate.sh"]
+
+# ---------------------------------------------------------------------------
+# Robot operations
+# ---------------------------------------------------------------------------
+
+[tasks.slam]
+cmd = "ros2 launch jetank_navigation navigation_full.launch.py mode:=slam"
+description = "Launch SLAM mapping (RPLidar + RViz)"
+
+[tasks.nav2]
+cmd = "ros2 launch jetank_navigation navigation_full.launch.py mode:=nav2"
+description = "Launch Nav2 (requires map:= argument appended)"
+
+[tasks.urdf]
+cmd = "ros2 launch jetank_ros_main urdf.launch.py"
+description = "Robot state publisher + URDF visualisation"
+
+[tasks.stereo-camera]
+cmd = "ros2 launch jetank_ros_main stereo_camera.launch.py"
+description = "Launch the stereo camera pipeline"
+
+[tasks.gazebo]
+cmd = "ros2 launch jetank_simulation gazebo.launch.py"
+description = "Launch Gazebo simulation"
+
+# ---------------------------------------------------------------------------
+# Dependencies
+# Versions are intentionally left open ("*") so the lock file pins exact
+# builds. Re-run `pixi update` to bump.
+# ---------------------------------------------------------------------------
+
+[dependencies]
+# Build tooling
+colcon-common-extensions = "*"
+cmake = "*"
+ninja = "*"
+pkg-config = "*"
+cxx-compiler = "*"
+c-compiler = "*"
+
+# Core ROS2 (RViz, common nodes, demos)
+ros-humble-desktop = "*"
+
+# ros2_control + diff-drive
+ros-humble-ros2-control = "*"
+ros-humble-ros2-controllers = "*"
+ros-humble-controller-manager = "*"
+ros-humble-hardware-interface = "*"
+ros-humble-joint-trajectory-controller = "*"
+ros-humble-diff-drive-controller = "*"
+ros-humble-joint-state-broadcaster = "*"
+ros-humble-position-controllers = "*"
+
+# Robot description / state publishing
+ros-humble-xacro = "*"
+ros-humble-robot-state-publisher = "*"
+ros-humble-joint-state-publisher = "*"
+ros-humble-joint-state-publisher-gui = "*"
+
+# Perception
+ros-humble-cv-bridge = "*"
+ros-humble-image-transport = "*"
+ros-humble-camera-info-manager = "*"
+ros-humble-pcl-conversions = "*"
+ros-humble-stereo-msgs = "*"
+
+# Navigation
+ros-humble-navigation2 = "*"
+ros-humble-nav2-bringup = "*"
+ros-humble-slam-toolbox = "*"
+ros-humble-rplidar-ros = "*"
+
+# Manipulation
+ros-humble-moveit = "*"
+ros-humble-moveit-servo = "*"
+
+# Simulation (Gazebo Fortress / Ignition - matches jetank_simulation)
+ros-humble-ros-gz-sim = "*"
+ros-humble-ros-gz-bridge = "*"
+ros-humble-ros-gz-image = "*"
+ros-humble-ign-ros2-control = "*"
+
+# Native libs needed by JeTank packages
+libgpiod = "*"
+gstreamer = "*"
+gst-plugins-base = "*"
+gst-plugins-good = "*"
+yaml-cpp = "*"
+
+[pypi-dependencies]
+# Pure-pip extras (web control side-car etc.) live here. Empty for now.

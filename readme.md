@@ -13,6 +13,33 @@ This repository provides a complete Robot Operating System (ROS) integration for
 
 For recent development logs and notes, see the [Updates](#updates) section.
 
+## 🚀 Quickstart (one clone, one script)
+
+`jetank_ros_main` is the **seed package**: clone it, run `install.sh`, and the
+whole eight-package workspace is fetched and provisioned for you. No manual
+cloning of sibling packages, no manual pixi setup.
+
+```bash
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+git clone git@github.com:kvgork/jetank_ros_main.git
+cd jetank_ros_main
+./install.sh            # add --build to also compile, --https if you have no SSH keys
+```
+
+Then:
+
+```bash
+cd ~/ros2_ws
+pixi run build          # build all 8 packages
+pixi run gazebo         # boot the simulation
+```
+
+`install.sh` stages the workspace-root template files (`pixi.toml`, `pixi.lock`,
+etc. — vendored under `workspace_template/`), clones the seven sibling packages
+listed in `jetank.repos` (pinned to `main`, so you always get the latest), and
+installs pixi if it is missing. Run `./install.sh --help` for all flags. See
+[`workspace_template/PIXI.md`](workspace_template/PIXI.md) for environment details.
+
 ## 🛠️ Hardware updates
 
 - **Camera module**: Updated the stock IMX219-160 Camera module to a IMX219-83 Stereo Camera module to allow for depth perception

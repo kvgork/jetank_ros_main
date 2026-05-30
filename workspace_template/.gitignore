@@ -1,0 +1,54 @@
+# Pixi
+.pixi/
+
+# Colcon / ROS2 build artifacts
+build/
+install/
+log/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Compiled objects / libraries
+*.o
+*.a
+*.so
+*.so.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.eggs/
+.pytest_cache/
+.coverage
+.tox/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local logs / temp
+*.log
+*.tmp
+*.bak
+*.autosave
+*.user
+
+# Local environment
+.env
+.envrc
+.venv/
+venv/
+
+# Workspace-local artifacts
+build_output.log
