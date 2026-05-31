@@ -38,7 +38,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -54,8 +54,8 @@ def generate_launch_description():
     web = LaunchConfiguration('web')
 
     declare_world = DeclareLaunchArgument(
-        'world', default_value='obstacle_course',
-        description='World to load: empty, simple_test, obstacle_course, sock_arena')
+        'world', default_value='house',
+        description='World to load: empty, simple_test, obstacle_course, sock_arena, house')
     declare_slam = DeclareLaunchArgument(
         'slam', default_value='true',
         description='Run slam_toolbox (mapping) against the simulated lidar')
@@ -79,12 +79,16 @@ def generate_launch_description():
     )
 
     # 2. RViz with the project's unified.rviz config (RobotModel + TF + lidar
-    #    scan + map + Navigation 2 panel). This is the canonical JeTank view.
+    #    scan + map + Navigation 2 panel). When arm:=true, RViz is instead
+    #    launched by moveit_sim below so it carries the MoveIt SRDF/kinematics
+    #    params the MotionPlanning panel needs — so launch this plain RViz only
+    #    when the arm is NOT requested.
     rviz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('jetank_ros_main'),
                                   'launch', 'rviz.launch.py'])),
-        condition=IfCondition(use_rviz),
+        condition=IfCondition(PythonExpression(
+            ["'", use_rviz, "' == 'true' and '", arm, "' == 'false'"])),
         launch_arguments={'use_sim_time': 'true'}.items(),
     )
 
@@ -112,7 +116,12 @@ def generate_launch_description():
         condition=IfCondition(arm),
         launch_arguments={
             'start_gazebo': 'false',
-            'use_rviz': 'false',
+            # When arm and rviz are both on, moveit_sim provides RViz loaded
+            # with unified.rviz AND the MoveIt params the MotionPlanning panel
+            # needs (the plain RViz above is suppressed in that case).
+            'use_rviz': use_rviz,
+            'rviz_config': PathJoinSubstitution([
+                FindPackageShare('jetank_ros_main'), 'rviz', 'unified.rviz']),
         }.items(),
     )
 

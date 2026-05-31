@@ -17,7 +17,7 @@ def generate_launch_description():
     declare_world_arg = DeclareLaunchArgument(
         'world',
         default_value='empty',
-        description='World to load: empty, simple_test, obstacle_course, sock_arena'
+        description='World to load: empty, simple_test, obstacle_course, sock_arena, house'
     )
 
     # Start the arm_controller active (needed when MoveIt drives the arm).
@@ -35,6 +35,7 @@ def generate_launch_description():
         'simple_test': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
         'obstacle_course': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
         'sock_arena': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
+        'house': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
     }
 
     # Get selected world file path (default to empty if invalid selection)
@@ -104,6 +105,19 @@ def generate_launch_description():
         condition=LaunchConfigurationEquals('world', 'sock_arena')
     )
 
+    # House world (multi-room)
+    gazebo_house = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            FindPackageShare('jetank_simulation'),
+            '/launch/gazebo.launch.py'
+        ]),
+        launch_arguments={
+            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
+            'start_arm_active': start_arm_active,
+        }.items(),
+        condition=LaunchConfigurationEquals('world', 'house')
+    )
+
     # Create launch description
     ld = LaunchDescription()
 
@@ -116,5 +130,6 @@ def generate_launch_description():
     ld.add_action(gazebo_simple_test)
     ld.add_action(gazebo_obstacle_course)
     ld.add_action(gazebo_sock_arena)
+    ld.add_action(gazebo_house)
 
     return ld

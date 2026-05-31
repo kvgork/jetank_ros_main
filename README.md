@@ -64,6 +64,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 | `simple_test.sdf` | box + cylinder | quick lidar/depth check |
 | `obstacle_course.sdf` | 5×5 m arena, walls + 8 cylinders | **lidar / nav / SLAM** |
 | `sock_arena.sdf` | room + furniture + socks | manipulation/collection |
+| `house.sdf` | 3-room house (living/bed/kitchen) + doorways + furniture | **SLAM + Nav2** (sim_demo default) |
 
 ## RViz
 
