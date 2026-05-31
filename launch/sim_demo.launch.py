@@ -51,6 +51,7 @@ def generate_launch_description():
     slam = LaunchConfiguration('slam')
     use_rviz = LaunchConfiguration('rviz')
     arm = LaunchConfiguration('arm')
+    web = LaunchConfiguration('web')
 
     declare_world = DeclareLaunchArgument(
         'world', default_value='obstacle_course',
@@ -64,6 +65,9 @@ def generate_launch_description():
     declare_arm = DeclareLaunchArgument(
         'arm', default_value='false',
         description='Also start MoveIt move_group and activate arm_controller')
+    declare_web = DeclareLaunchArgument(
+        'web', default_value='false',
+        description='Also start the web control in sim mode (port 8080, cmd_vel bridge)')
 
     # 1. Gazebo + robot + sensors + controllers (sim-time, GUI). When arm:=true
     #    the arm_controller is started active so MoveIt can drive it.
@@ -112,13 +116,25 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 5. Optional web control (sim mode): serves the UI on :8080 and bridges
+    #    its Twist /cmd_vel to the controller's TwistStamped topic.
+    web_stack = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_web_control'),
+                                  'launch', 'web_control.launch.py'])),
+        condition=IfCondition(web),
+        launch_arguments={'sim': 'true'}.items(),
+    )
+
     ld = LaunchDescription()
     ld.add_action(declare_world)
     ld.add_action(declare_slam)
     ld.add_action(declare_rviz)
     ld.add_action(declare_arm)
+    ld.add_action(declare_web)
     ld.add_action(gazebo)
     ld.add_action(rviz)
     ld.add_action(slam_stack)
     ld.add_action(arm_stack)
+    ld.add_action(web_stack)
     return ld

@@ -17,6 +17,8 @@ ros2 launch jetank_ros_main sim_demo.launch.py
 #   rviz  := true | false   (default true — loads jetank_ros_main/rviz/unified.rviz)
 #   arm   := true | false   (default false — also starts MoveIt move_group and
 #                            activates arm_controller, attached to THIS Gazebo)
+#   web   := true | false   (default false — also starts the web control in sim
+#                            mode on :8080, with a Twist->TwistStamped cmd_vel bridge)
 ```
 
 `arm:=true` is the truly-unified path: it starts `arm_controller` active (via
