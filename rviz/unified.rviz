@@ -29,6 +29,11 @@ Visualization Manager:
       Collision Enabled: false
       Enabled: true
 
+    # NOTE: the MoveIt "MotionPlanning" display was intentionally removed — the
+    # moveit_rviz_plugin segfaults RViz in this RoboStack/Gazebo environment
+    # (SIGSEGV on load). Drive the arm via the FollowJointTrajectory action and
+    # the gripper via /gripper_controller/commands instead. See README.
+
     - Class: rviz_default_plugins/TF
       Name: TF
       Enabled: true

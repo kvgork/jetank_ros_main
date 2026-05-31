@@ -1,0 +1,74 @@
+# JeTank — Simulation Control Cheatsheet
+
+How to launch the Gazebo simulation and drive every part of the robot.
+All commands run inside the pixi env (`pixi shell`, or prefix with `pixi run`).
+
+## Launch
+
+```bash
+# Full sim: Gazebo GUI + RViz (unified.rviz) + arm (move_group) + web control
+ros2 launch jetank_ros_main sim_demo.launch.py arm:=true web:=true
+
+# Args (all optional):
+#   world := empty | simple_test | obstacle_course | sock_arena   (default obstacle_course)
+#   slam  := true | false   (default true)   rviz := true | false   (default true)
+#   arm   := true | false   (default false)  web  := true | false   (default false)
+```
+
+> GUI windows (Gazebo, RViz) open **behind** other windows — alt-tab to them.
+> RViz uses the **Orbit** view (LMB orbit, scroll zoom, Shift+LMB pan).
+
+## Drive the base
+
+Web UI (easiest): open **http://localhost:8080** (or `http://<host-ip>:8080` from
+another device) → WASD / arrows / on-screen joystick.
+
+Keyboard teleop (note: the controller takes **TwistStamped**):
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard \
+  --ros-args -p stamped:=true -r /cmd_vel:=/diff_drive_controller/cmd_vel
+```
+
+Odometry: `/diff_drive_controller/odom`.
+
+## Move the arm (4-DOF: S1, S2, S3, S5)
+
+Send a joint trajectory to the `arm_controller` (requires `arm:=true`):
+
+```bash
+ros2 action send_goal /arm_controller/follow_joint_trajectory \
+  control_msgs/action/FollowJointTrajectory \
+  "{trajectory: {joint_names: [S1_joint, S2_joint, S3_joint, S5_joint],
+     points: [{positions: [0.0, 0.5, -0.3, 0.2], time_from_start: {sec: 2}}]}}"
+```
+
+Joint limits (rad): S1 ±2.35, S2/S3/S5 ±1.57.
+
+## Move the gripper (parallel jaw)
+
+`gripper_controller` is a `JointGroupPositionController`. Position in meters,
+`0.0` = closed … `0.04` = open:
+
+```bash
+# open
+ros2 topic pub --once /gripper_controller/commands std_msgs/msg/Float64MultiArray "{data: [0.04, 0.04]}"
+# close
+ros2 topic pub --once /gripper_controller/commands std_msgs/msg/Float64MultiArray "{data: [0.0, 0.0]}"
+```
+
+The arm and gripper motion is visible in both RViz (RobotModel) and Gazebo.
+
+## RViz — known limitation
+
+The MoveIt **MotionPlanning** display is intentionally **not** in `unified.rviz`:
+the `motion_planning_rviz_plugin` **segfaults RViz** in this RoboStack/Gazebo
+environment (SIGSEGV on load). Drive the arm with the action command above
+instead of dragging a goal marker. `move_group` still runs (planning available
+programmatically / via MoveIt's Python or C++ API).
+
+## Teardown
+
+```bash
+pkill -f 'ros2 launch'; pkill -f 'gz sim'; pkill -f rviz2; pkill -f move_group; pkill -f web_control
+```
