@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""One-shot simulation demo bring-up for the JeTank robot.
+
+Brings up everything you need to *see* and *drive* the robot in Gazebo:
+
+  - Gazebo Fortress (GUI) with a selectable world (obstacle_course by default,
+    so the lidar has walls + cylinders to range against)
+  - The robot spawned with gz_ros2_control (diff-drive base + arm + gripper)
+  - Simulated lidar (/scan), IMU (/imu) and stereo cameras, bridged to ROS 2
+  - RViz for visualisation
+  - Optional SLAM (slam_toolbox) so you can build a map while you drive
+
+This is the simulation counterpart to ``navigation_full.launch.py`` (which is
+for the real robot). It deliberately reuses the sim-aware path of
+``navigation_full`` (``use_sim_time:=true``), which skips the hardware nodes.
+
+Usage::
+
+    # Default: obstacle world + RViz + SLAM
+    ros2 launch jetank_ros_main sim_demo.launch.py
+
+    # Pick a different world, no SLAM (plain robot view)
+    ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena slam:=false
+
+Drive the base from another terminal (note: TwistStamped on the controller topic)::
+
+    ros2 run teleop_twist_keyboard teleop_twist_keyboard \\
+        --ros-args -p stamped:=true \\
+        -r /cmd_vel:=/diff_drive_controller/cmd_vel
+
+Move the arm interactively with MoveIt instead via::
+
+    ros2 launch jetank_moveit_config moveit_sim.launch.py
+"""
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition, UnlessCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch_ros.substitutions import FindPackageShare
+
+
+def generate_launch_description():
+    """Generate the simulation demo launch description."""
+    pkg_main = get_package_share_directory('jetank_ros_main')
+    pkg_nav = get_package_share_directory('jetank_navigation')
+
+    world = LaunchConfiguration('world')
+    slam = LaunchConfiguration('slam')
+    use_rviz = LaunchConfiguration('rviz')
+
+    declare_world = DeclareLaunchArgument(
+        'world', default_value='obstacle_course',
+        description='World to load: empty, simple_test, obstacle_course, sock_arena')
+    declare_slam = DeclareLaunchArgument(
+        'slam', default_value='true',
+        description='Run slam_toolbox (mapping) against the simulated lidar')
+    declare_rviz = DeclareLaunchArgument(
+        'rviz', default_value='true',
+        description='Launch RViz')
+
+    # 1. Gazebo + robot + sensors + controllers (sim-time, GUI).
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_ros_main'),
+                                  'launch', 'gazebo_sim.launch.py'])),
+        launch_arguments={'world': world}.items(),
+    )
+
+    # 2. RViz with the project's unified.rviz config (RobotModel + TF + lidar
+    #    scan + map + Navigation 2 panel). This is the canonical JeTank view.
+    rviz = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_ros_main'),
+                                  'launch', 'rviz.launch.py'])),
+        condition=IfCondition(use_rviz),
+        launch_arguments={'use_sim_time': 'true'}.items(),
+    )
+
+    # 3. Optional SLAM: reuse navigation_full's sim-aware path (no hardware
+    #    nodes because use_sim_time:=true). RViz is provided above by unified.rviz,
+    #    so suppress navigation_full's own RViz to avoid a duplicate window.
+    slam_stack = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_navigation'),
+                                  'launch', 'navigation_full.launch.py'])),
+        condition=IfCondition(slam),
+        launch_arguments={
+            'mode': 'slam',
+            'use_sim_time': 'true',
+            'rviz': 'false',
+        }.items(),
+    )
+
+    ld = LaunchDescription()
+    ld.add_action(declare_world)
+    ld.add_action(declare_slam)
+    ld.add_action(declare_rviz)
+    ld.add_action(gazebo)
+    ld.add_action(rviz)
+    ld.add_action(slam_stack)
+    return ld

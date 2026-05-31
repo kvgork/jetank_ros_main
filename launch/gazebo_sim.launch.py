@@ -35,9 +35,11 @@ def generate_launch_description():
         world_choice = context.launch_configurations.get('world', 'empty')
         return world_files.get(world_choice, world_files['empty'])
 
-    # Include base gazebo launch with selected world
-    from launch.substitutions import LaunchConfiguration, PythonExpression
-    from launch.conditions import LaunchConfigurationEquals, LaunchConfigurationNotEquals
+    # Include base gazebo launch with selected world.
+    # NOTE: do not re-import LaunchConfiguration here — a function-local import
+    # shadows the module-level one (line 5) and makes every prior reference an
+    # UnboundLocalError. Only import the condition helper actually used below.
+    from launch.conditions import LaunchConfigurationEquals
 
     # We need to use multiple IncludeLaunchDescription with conditions
     # to properly substitute the world file path at launch time
