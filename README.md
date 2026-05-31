@@ -15,6 +15,18 @@ ros2 launch jetank_ros_main sim_demo.launch.py
 #   world := empty | simple_test | obstacle_course | sock_arena   (default: obstacle_course)
 #   slam  := true | false   (default true — slam_toolbox builds /map from the sim lidar)
 #   rviz  := true | false   (default true — loads jetank_ros_main/rviz/unified.rviz)
+#   arm   := true | false   (default false — also starts MoveIt move_group and
+#                            activates arm_controller, attached to THIS Gazebo)
+```
+
+`arm:=true` is the truly-unified path: it starts `arm_controller` active (via
+`gazebo_sim`'s `start_arm_active`) and includes `moveit_sim.launch.py` with
+`start_gazebo:=false` so move_group attaches to the running sim instead of
+spawning a second one.
+
+```bash
+# Everything in one sim: base + lidar + SLAM + arm + RViz
+ros2 launch jetank_ros_main sim_demo.launch.py arm:=true
 ```
 
 Includes `gazebo_sim.launch.py` (Gazebo + robot + sensors + controllers),

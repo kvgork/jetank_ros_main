@@ -36,9 +36,9 @@ Move the arm interactively with MoveIt instead via::
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -50,6 +50,7 @@ def generate_launch_description():
     world = LaunchConfiguration('world')
     slam = LaunchConfiguration('slam')
     use_rviz = LaunchConfiguration('rviz')
+    arm = LaunchConfiguration('arm')
 
     declare_world = DeclareLaunchArgument(
         'world', default_value='obstacle_course',
@@ -60,13 +61,17 @@ def generate_launch_description():
     declare_rviz = DeclareLaunchArgument(
         'rviz', default_value='true',
         description='Launch RViz')
+    declare_arm = DeclareLaunchArgument(
+        'arm', default_value='false',
+        description='Also start MoveIt move_group and activate arm_controller')
 
-    # 1. Gazebo + robot + sensors + controllers (sim-time, GUI).
+    # 1. Gazebo + robot + sensors + controllers (sim-time, GUI). When arm:=true
+    #    the arm_controller is started active so MoveIt can drive it.
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('jetank_ros_main'),
                                   'launch', 'gazebo_sim.launch.py'])),
-        launch_arguments={'world': world}.items(),
+        launch_arguments={'world': world, 'start_arm_active': arm}.items(),
     )
 
     # 2. RViz with the project's unified.rviz config (RobotModel + TF + lidar
@@ -94,11 +99,26 @@ def generate_launch_description():
         }.items(),
     )
 
+    # 4. Optional arm: attach MoveIt move_group to THIS Gazebo (start_gazebo:=false
+    #    so it does not spawn a second simulation). RViz is the unified one above.
+    arm_stack = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_moveit_config'),
+                                  'launch', 'moveit_sim.launch.py'])),
+        condition=IfCondition(arm),
+        launch_arguments={
+            'start_gazebo': 'false',
+            'use_rviz': 'false',
+        }.items(),
+    )
+
     ld = LaunchDescription()
     ld.add_action(declare_world)
     ld.add_action(declare_slam)
     ld.add_action(declare_rviz)
+    ld.add_action(declare_arm)
     ld.add_action(gazebo)
     ld.add_action(rviz)
     ld.add_action(slam_stack)
+    ld.add_action(arm_stack)
     return ld
