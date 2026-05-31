@@ -29,6 +29,11 @@ Visualization Manager:
       Collision Enabled: false
       Enabled: true
 
+    # NOTE: the MoveIt "MotionPlanning" display was intentionally removed — the
+    # moveit_rviz_plugin segfaults RViz in this RoboStack/Gazebo environment
+    # (SIGSEGV on load). Drive the arm via the FollowJointTrajectory action and
+    # the gripper via /gripper_controller/commands instead. See README.
+
     - Class: rviz_default_plugins/TF
       Name: TF
       Enabled: true
@@ -233,13 +238,25 @@ Visualization Manager:
   # ========================================
   Views:
     Current:
-      Class: rviz_default_plugins/TopDownOrtho
-      Name: TopDownOrtho
+      Class: rviz_default_plugins/Orbit
+      Name: Orbit
+      Distance: 3.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Pitch: 0.6
+      Yaw: 0.785
+      Target Frame: base_link
       Near Clip Distance: 0.01
-      Scale: 20.0
-      Target Frame: map
-      X: 0.0
-      Y: 0.0
+    Saved:
+      - Class: rviz_default_plugins/TopDownOrtho
+        Name: TopDownOrtho
+        Near Clip Distance: 0.01
+        Scale: 20.0
+        Target Frame: map
+        X: 0.0
+        Y: 0.0
 
 Window Geometry:
   Displays:

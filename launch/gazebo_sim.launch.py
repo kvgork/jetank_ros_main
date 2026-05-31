@@ -17,7 +17,15 @@ def generate_launch_description():
     declare_world_arg = DeclareLaunchArgument(
         'world',
         default_value='empty',
-        description='World to load: empty, simple_test, obstacle_course, sock_arena'
+        description='World to load: empty, simple_test, obstacle_course, sock_arena, house'
+    )
+
+    # Start the arm_controller active (needed when MoveIt drives the arm).
+    start_arm_active = LaunchConfiguration('start_arm_active')
+    declare_start_arm_active_arg = DeclareLaunchArgument(
+        'start_arm_active',
+        default_value='false',
+        description='Start arm_controller active instead of inactive'
     )
 
     # Map world names to file paths
@@ -27,6 +35,7 @@ def generate_launch_description():
         'simple_test': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
         'obstacle_course': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
         'sock_arena': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
+        'house': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
     }
 
     # Get selected world file path (default to empty if invalid selection)
@@ -35,9 +44,11 @@ def generate_launch_description():
         world_choice = context.launch_configurations.get('world', 'empty')
         return world_files.get(world_choice, world_files['empty'])
 
-    # Include base gazebo launch with selected world
-    from launch.substitutions import LaunchConfiguration, PythonExpression
-    from launch.conditions import LaunchConfigurationEquals, LaunchConfigurationNotEquals
+    # Include base gazebo launch with selected world.
+    # NOTE: do not re-import LaunchConfiguration here — a function-local import
+    # shadows the module-level one (line 5) and makes every prior reference an
+    # UnboundLocalError. Only import the condition helper actually used below.
+    from launch.conditions import LaunchConfigurationEquals
 
     # We need to use multiple IncludeLaunchDescription with conditions
     # to properly substitute the world file path at launch time
@@ -49,7 +60,8 @@ def generate_launch_description():
             '/launch/gazebo.launch.py'
         ]),
         launch_arguments={
-            'world': os.path.join(pkg_jetank_simulation, 'worlds', 'empty_fortress.sdf')
+            'world': os.path.join(pkg_jetank_simulation, 'worlds', 'empty_fortress.sdf'),
+            'start_arm_active': start_arm_active,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'empty')
     )
@@ -61,7 +73,8 @@ def generate_launch_description():
             '/launch/gazebo.launch.py'
         ]),
         launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf')
+            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
+            'start_arm_active': start_arm_active,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'simple_test')
     )
@@ -73,7 +86,8 @@ def generate_launch_description():
             '/launch/gazebo.launch.py'
         ]),
         launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf')
+            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
+            'start_arm_active': start_arm_active,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'obstacle_course')
     )
@@ -85,9 +99,23 @@ def generate_launch_description():
             '/launch/gazebo.launch.py'
         ]),
         launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf')
+            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
+            'start_arm_active': start_arm_active,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'sock_arena')
+    )
+
+    # House world (multi-room)
+    gazebo_house = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            FindPackageShare('jetank_simulation'),
+            '/launch/gazebo.launch.py'
+        ]),
+        launch_arguments={
+            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
+            'start_arm_active': start_arm_active,
+        }.items(),
+        condition=LaunchConfigurationEquals('world', 'house')
     )
 
     # Create launch description
@@ -95,11 +123,13 @@ def generate_launch_description():
 
     # Declare arguments
     ld.add_action(declare_world_arg)
+    ld.add_action(declare_start_arm_active_arg)
 
     # Add conditional gazebo launches
     ld.add_action(gazebo_empty)
     ld.add_action(gazebo_simple_test)
     ld.add_action(gazebo_obstacle_course)
     ld.add_action(gazebo_sock_arena)
+    ld.add_action(gazebo_house)
 
     return ld
