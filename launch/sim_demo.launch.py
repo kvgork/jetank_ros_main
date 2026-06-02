@@ -22,6 +22,9 @@ Usage::
     # Pick a different world, no SLAM (plain robot view)
     ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena slam:=false
 
+    # Sock arena with live detection enabled
+    ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena detect:=true slam:=false
+
 Drive the base from another terminal (note: TwistStamped on the controller topic)::
 
     ros2 run teleop_twist_keyboard teleop_twist_keyboard \\
@@ -52,6 +55,7 @@ def generate_launch_description():
     use_rviz = LaunchConfiguration('rviz')
     arm = LaunchConfiguration('arm')
     web = LaunchConfiguration('web')
+    detect = LaunchConfiguration('detect')
 
     declare_world = DeclareLaunchArgument(
         'world', default_value='house',
@@ -68,6 +72,9 @@ def generate_launch_description():
     declare_web = DeclareLaunchArgument(
         'web', default_value='false',
         description='Also start the web control in sim mode (port 8080, cmd_vel bridge)')
+    declare_detect = DeclareLaunchArgument(
+        'detect', default_value='false',
+        description='Also start the sock detector node (jetank_detection) against the sim left camera')
 
     # 1. Gazebo + robot + sensors + controllers (sim-time, GUI). When arm:=true
     #    the arm_controller is started active so MoveIt can drive it.
@@ -135,15 +142,35 @@ def generate_launch_description():
         launch_arguments={'sim': 'true'}.items(),
     )
 
+    # 6. Optional sock detector (jetank_detection): launches the lifecycle
+    #    detector node in continuous mode against the sim left camera.
+    #    The sim publishes /stereo_camera/left/image_raw — same as the real robot,
+    #    so no remapping is needed.
+    #    After launch, lifecycle transitions are still required:
+    #      ros2 lifecycle set /sock_detector configure
+    #      ros2 lifecycle set /sock_detector activate
+    detect_stack = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_detection'),
+                                  'launch', 'detect.launch.py'])),
+        condition=IfCondition(detect),
+        launch_arguments={
+            'input_image_topic': '/stereo_camera/left/image_raw',
+            'continuous': 'true',
+        }.items(),
+    )
+
     ld = LaunchDescription()
     ld.add_action(declare_world)
     ld.add_action(declare_slam)
     ld.add_action(declare_rviz)
     ld.add_action(declare_arm)
     ld.add_action(declare_web)
+    ld.add_action(declare_detect)
     ld.add_action(gazebo)
     ld.add_action(rviz)
     ld.add_action(slam_stack)
     ld.add_action(arm_stack)
     ld.add_action(web_stack)
+    ld.add_action(detect_stack)
     return ld
