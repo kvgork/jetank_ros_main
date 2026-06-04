@@ -18,9 +18,9 @@ the data→model loop.
 
 | Question | Decision | Why |
 |---|---|---|
-| Capture method | Headless `jetank_detection capture_frames` node against `sim_demo world:=sock_arena` | No human clicking; deterministic interval; resumes numbering. Already built. |
-| Scene diversity | **Domain randomization in `sock_arena`** — randomize sock pose/colour, floor texture, light, camera height between capture runs | Single static scene overfits; sim lets us randomize cheaply (the whole point of the sim track). |
-| Labelling | **Auto-pre-label from sim ground truth** where possible; else COCO-pretrained rough pass + human review | Gazebo knows the sock pose → can project a bbox without manual clicks (best case). Fall back to assisted labelling. |
+| Capture method | **Web control `/capture` button** against `sim_demo world:=sock_arena web:=true` (the web UI runs in sim with `sim:=true`) | Frames go through the *same* camera path the detector sees at runtime → train/serve consistency. Headless `capture_frames` remains a batch fallback. |
+| Scene diversity | `sock_arena` already has **6 coloured socks** planted (red/blue/green/yellow/white/pink). Drive the robot around to vary viewpoint; later add domain randomization (pose/floor/light) | Static spread already gives viewpoint diversity; randomization is a later upgrade, not a blocker. |
+| Labelling | **Annotation tab in the web UI** with an *Auto (rough)* toggle: a CV colour-blob detector proposes boxes, human reviews/corrects/saves | No model exists yet (chicken-and-egg) and COCO has no `sock` class, so CV blob is the only viable "auto" today. GT-projection (Path A) stays the long-term upgrade. |
 | Train | Ultralytics `yolo train` off-robot (x86 GPU), recipe from parent §4.3 | Same as real track; sim data only. |
 | Output | `sock_sim.pt` (+ ONNX → `.engine` built on Jetson) | Wired via `model_path_sim` in `config/sock_detector.yaml`. |
 | Acceptance | Parent §6 tests 1–9, 13, 15 run on a **sim** held-out set | Reuse the existing numbered test plan, sim domain. |
@@ -29,33 +29,31 @@ the data→model loop.
 
 ## 1. Phases
 
-### S0 — Domain-randomized capture (automatable)
-- Extend `sock_arena` (in `jetank_simulation` worlds) with a randomization hook:
-  a small script that, between capture runs, respawns the sock at random
-  `(x, y, yaw)` on the floor plane, swaps the floor material, and jitters the
-  light. Options: an Ignition `gz service`/`gz model` script, or a ROS node that
-  calls `/world/.../set_pose` and material services.
-- Drive captures with the existing node:
+### S0 — Capture via web control (DONE — tooling shipped)
+- `sock_arena` already has 6 coloured socks planted, and `sim_demo` runs the web
+  UI in sim mode (`web_control.launch.py sim:=true`), so captured frames use the
+  same camera path the detector sees.
   ```bash
-  ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena slam:=false
-  ros2 run jetank_detection capture_frames --ros-args \
-      -p output_dir:=$HOME/datasets/detection/sim \
-      -p domain:=sim -p interval_sec:=0.5 -p max_frames:=600
+  ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena web:=true slam:=false
+  # open http://localhost:8080 → drive the robot → click 📷 Capture per frame
+  # frames land in ~/datasets/detection/ (web_control capture_dir)
   ```
-- Target: 400–600 frames across ≥4 floor textures, ≥3 light levels, sock
-  distances 0.2–1.0 m, including ~20% empty-floor negatives.
-- **Acceptance:** ≥400 sim JPEGs in `~/datasets/detection/sim/`, diversity
-  spot-checked.
+- Drive to vary viewpoint/distance; include ~20% empty-floor negatives.
+- **Later upgrade:** domain randomization (respawn socks at random pose, swap
+  floor material, jitter light between runs) via a `gz service` / ROS node.
+- **Acceptance:** ≥400 sim JPEGs in the capture dir, diversity spot-checked.
 
-### S1 — Auto-labelling (semi-automatable)
-- **Path A (preferred) — ground-truth projection:** at capture time, also log
-  the sock's world pose + the camera `camera_info`/TF, project the sock's
-  bounding box into image space, and write the YOLO `.txt` label directly. Zero
-  manual clicks. Requires extending `capture_frames` (or a sibling node) to read
-  the model pose and project — design it in S0 so labels come free with frames.
-- **Path B (fallback) — assisted:** run a COCO-pretrained YOLO11n to pre-label,
-  then human-review in CVAT/Roboflow (parent §4.2). Use when Path A projection
-  is too noisy (sim camera ~90° optical-frame offset, see parent §sim-gotchas).
+### S1 — Annotation tab with rough auto-label (DONE — tooling shipped)
+- The web UI has an **Annotate tab** (`showTab('annotate')`): pick a capture,
+  draw/edit boxes, save YOLO sidecars. An **Auto (rough)** toggle + *Auto-detect*
+  button call `POST /captures/autolabel/{name}`, which runs a CV colour-blob
+  detector (`rough_boxes_from_bgr`, HSV saturation/value threshold + contours)
+  and proposes boxes for the human to correct. Boxes map to the `sock` class.
+  - Limitation: misses low-saturation socks (the white one) — draw those by hand.
+- **Path A (long-term upgrade) — ground-truth projection:** log the sock world
+  pose + `camera_info`/TF at capture and project an exact bbox → zero manual
+  clicks. Replaces the CV rough pass once the sim optical-frame offset is handled
+  (parent §sim-gotchas).
 - 80/20 train/val + held-out ~20% test split, single class `sock`.
 - **Acceptance:** every train/val image has a label file; test set never used in
   training; `sock.yaml` (sim) written.
