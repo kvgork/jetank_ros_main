@@ -142,17 +142,19 @@ def generate_launch_description():
         launch_arguments={'sim': 'true'}.items(),
     )
 
-    # 6. Optional sock detector (jetank_detection): launches the lifecycle
-    #    detector node in continuous mode against the sim left camera.
+    # 6. Optional sock detector (jetank_detection): uses the SIM entry point
+    #    (detect_sim.launch.py), which pins sim:=true so the node loads the sim
+    #    model (model_path_sim) — sim and real need different models because the
+    #    synthetic Gazebo imagery differs from real camera frames.
     #    The sim publishes /stereo_camera/left/image_raw — same as the real robot,
-    #    so no remapping is needed.
+    #    so no remapping is needed. Runs continuous (live) by default.
     #    After launch, lifecycle transitions are still required:
     #      ros2 lifecycle set /sock_detector configure
     #      ros2 lifecycle set /sock_detector activate
     detect_stack = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('jetank_detection'),
-                                  'launch', 'detect.launch.py'])),
+                                  'launch', 'detect_sim.launch.py'])),
         condition=IfCondition(detect),
         launch_arguments={
             'input_image_topic': '/stereo_camera/left/image_raw',
