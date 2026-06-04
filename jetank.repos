@@ -2,7 +2,7 @@
 #
 # `jetank_ros_main` is the seed package: you already cloned it, so it does
 # not list itself here. `install.sh` feeds this file to `vcs import` to
-# clone the seven sibling packages into <ws>/src/.
+# clone the eight sibling packages into <ws>/src/.
 #
 # All siblings are pinned to `main` so a fresh clone installs the latest
 # released state of every package. Switch to tags here when a coordinated
@@ -11,6 +11,10 @@ repositories:
   jetank_description:
     type: git
     url: git@github.com:kvgork/jetank_description.git
+    version: main
+  jetank_detection:
+    type: git
+    url: git@github.com:kvgork/jetank_detection.git
     version: main
   jetank_motor_control:
     type: git
