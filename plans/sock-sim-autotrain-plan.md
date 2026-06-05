@@ -50,6 +50,14 @@ the data→model loop.
   detector (`rough_boxes_from_bgr`, HSV saturation/value threshold + contours)
   and proposes boxes for the human to correct. Boxes map to the `sock` class.
   - Limitation: misses low-saturation socks (the white one) — draw those by hand.
+  - **Auto-detect is colour-blob only — it does NOT use a trained model.** No
+    `sock_sim.pt` is loaded; it bootstraps the first dataset before any model
+    exists. Model-assisted pre-labelling (load `sock_sim.pt` once S2 produces it,
+    fall back to colour-blob) is a planned upgrade, not wired yet.
+- **Labelling UX (shipped):** Save **auto-advances** to the next image. Hotkeys
+  while the panel is open: `Enter` save+next, `E`/`]` next, `Q`/`[` prev, `R`
+  auto-detect, `X`/`Del` delete box, `Esc` deselect, `1`–`9`/`0` pick class. Drive
+  keys are disabled while labelling. (See `jetank_web_control/README.md`.)
 - **Path A (long-term upgrade) — ground-truth projection:** log the sock world
   pose + `camera_info`/TF at capture and project an exact bbox → zero manual
   clicks. Replaces the CV rough pass once the sim optical-frame offset is handled
@@ -59,14 +67,25 @@ the data→model loop.
   training; `sock.yaml` (sim) written.
 
 ### S2 — Train + export (automatable, off-robot)
-- ```bash
-  yolo train model=yolo11n.pt data=sock_sim.yaml epochs=100 imgsz=640 batch=16 \
-      hsv_s=0.5 degrees=15 flipud=0.3 mosaic=1.0
-  yolo export model=runs/.../best.pt format=onnx     # off-robot
-  # On the Jetson:
-  yolo export model=sock_sim.pt format=engine half=True device=0
+- Runs in a **dedicated venv**, NOT the pixi/ROS env (no `ultralytics` there, and
+  torch+CUDA would bloat the on-robot env). Dataset prep is scripted:
+  `jetank_detection/scripts/prepare_dataset.py` turns the flat labeller output
+  (`<name>.jpg` + `<name>.txt` + `classes.txt`) into the YOLO `images/{train,val}`
+  + `labels/{train,val}` + `data.yaml` layout. Only images with a sidecar are
+  used; empty sidecar = negative (kept); no sidecar = unlabelled (skipped).
+  ```bash
+  python3 -m venv ~/.venvs/jetank-train && ~/.venvs/jetank-train/bin/pip install ultralytics
+  python3 jetank_detection/scripts/prepare_dataset.py \
+      --src ~/datasets/detection --out ~/datasets/detection/yolo --val-frac 0.2 --names sock
+  ~/.venvs/jetank-train/bin/yolo detect train model=yolo11n.pt \
+      data=~/datasets/detection/yolo/data.yaml epochs=100 imgsz=640 batch=16 \
+      hsv_s=0.5 degrees=15 flipud=0.3 mosaic=1.0 project=~/datasets/detection/runs name=sock_sim
+  # On the Jetson, export the trained best.pt to TensorRT:
+  ~/.venvs/jetank-train/bin/yolo export model=sock_sim.pt format=engine half=True device=0
   ```
-- Place `sock_sim.pt` where `model_path_sim` points (config/sock_detector.yaml).
+- Trained weights: `~/datasets/detection/runs/sock_sim/weights/best.pt` = `sock_sim.pt`.
+  Place where `model_path_sim` points, or pass `model_path_sim:=` to
+  `sim_demo.launch.py` (now forwarded to the detector). See `jetank_detection/README.md` §Training.
 - **Acceptance:** parent §6 tests 1–5 (model quality on sim test set), 6–7
   (.engine builds on Jetson).
 
@@ -80,6 +99,10 @@ the data→model loop.
   ```
 - **Acceptance:** parent §6 tests 8–9 (latency/Hz), 13 (action found/​not-found),
   15 (debug image shows box) — all on the sim domain.
+- **Live web view:** with `web:=true`, the web UI's **👁 Detections** toggle
+  overlays `/detections/socks` boxes on the left camera stream (polls
+  `/detections/latest`). Quickest visual check that the trained `sock_sim.pt` is
+  firing; empty + `no detector` status until the detector runs continuous.
 
 ### S4 — Concurrent + thermal (sim, parent P5)
 - Run with Nav2 + SLAM in `sock_arena`; record the budget numbers; finalise the

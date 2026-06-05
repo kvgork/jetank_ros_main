@@ -56,6 +56,7 @@ def generate_launch_description():
     arm = LaunchConfiguration('arm')
     web = LaunchConfiguration('web')
     detect = LaunchConfiguration('detect')
+    model_path_sim = LaunchConfiguration('model_path_sim')
 
     declare_world = DeclareLaunchArgument(
         'world', default_value='house',
@@ -75,6 +76,9 @@ def generate_launch_description():
     declare_detect = DeclareLaunchArgument(
         'detect', default_value='false',
         description='Also start the sock detector node (jetank_detection) against the sim left camera')
+    declare_model_path_sim = DeclareLaunchArgument(
+        'model_path_sim', default_value='',
+        description='Path to the trained sim model (.pt/.engine) for the sock detector (detect:=true)')
 
     # 1. Gazebo + robot + sensors + controllers (sim-time, GUI). When arm:=true
     #    the arm_controller is started active so MoveIt can drive it.
@@ -159,6 +163,7 @@ def generate_launch_description():
         launch_arguments={
             'input_image_topic': '/stereo_camera/left/image_raw',
             'continuous': 'true',
+            'model_path_sim': model_path_sim,
         }.items(),
     )
 
@@ -169,6 +174,7 @@ def generate_launch_description():
     ld.add_action(declare_arm)
     ld.add_action(declare_web)
     ld.add_action(declare_detect)
+    ld.add_action(declare_model_path_sim)
     ld.add_action(gazebo)
     ld.add_action(rviz)
     ld.add_action(slam_stack)

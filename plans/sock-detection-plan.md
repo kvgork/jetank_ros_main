@@ -53,6 +53,7 @@
 Action interface (new `jetank_msgs` or reuse `vision_msgs`):
 - Action `DetectSocks`: goal `{timeout, min_confidence, n_frames}` → result `{Detection2DArray best, float32 confidence, bool found}` → feedback `{frames_processed}`.
 - Also publish `Detection2DArray` on `/detections/socks` while active, + annotated debug image on `/detections/socks/debug` (param-gated).
+- **Web live view:** `jetank_web_control` subscribes to `/detections/socks`; the UI's **👁 Detections** toggle overlays the boxes on the left camera stream (`GET /detections/latest`, polled 10 Hz). Display-only — needs the detector running continuous with a trained model.
 
 ---
 
