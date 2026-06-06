@@ -68,11 +68,17 @@ verified headless in Gazebo Fortress. Full `GraspObject` sequence runs
 - `--headless-rendering` segfaults the conda-forge Ogre2 build (no EGL). Removed
   from `jetank_simulation/launch/gazebo_headless.launch.py`; with `DISPLAY` set,
   GLX works in server-only (`-s`) mode.
-- **Gazebo Fortress does NOT enforce the URDF `<mimic>` tag in physics.** The
-  parallel-jaw gripper needs ros2_control's *native* mimic
-  (`<param name="mimic">gripper_left_joint</param>` + `multiplier`) on
-  `gripper_right_joint`, and the URDF `<mimic>` tag must be REMOVED (it creates a
-  physics constraint that fights the controller and stalls the joint).
+- **Gazebo Fortress does NOT enforce the URDF `<mimic>` tag in physics.**
+  The final working pattern (2026-06-06, gripper-defect fix): URDF `<mimic>` tag is
+  RESTORED on `gripper_right_joint` (RSP needs it for TF + MoveIt model correctness).
+  The ros2_control NATIVE mimic params (`<param name="mimic">`) are REMOVED because
+  `libgz_hardware_plugins.so` appends `_mimic` to the published state interface name
+  → `gripper_right_joint_mimic` in `/joint_states`, breaking MoveIt.
+  Instead, `gripper_right_joint` gets its OWN position command interface and is driven
+  by a `ForwardCommandController` (`gripper_right_mimic_controller`) + a small relay
+  node (`gripper_mimic_relay` in `jetank_ros_main`) that mirrors `gripper_left_joint`
+  state → both fingers physically move in Gazebo AND appear correctly named in
+  `/joint_states` AND move_group spam is gone.
 - Gripper uses `position_controllers/GripperActionController` on
   `gripper_left_joint` (`/gripper_controller/gripper_cmd`,
   `control_msgs/action/GripperCommand`), registered with MoveIt as a
@@ -81,11 +87,11 @@ verified headless in Gazebo Fortress. Full `GraspObject` sequence runs
 - Prismatic finger joints needed effort raised 0.5→5 N and contact `kp` 1e6→1e4 +
   reduced damping/friction so ign_ros2_control's low internal gain can move them.
 
-**Known residual (non-blocking):** move_group logs `Joint
-'gripper_right_joint_mimic' not found in model 'jetank'` at ~50 Hz — the
-synthetic mimic state from joint_state_broadcaster isn't in MoveIt's model. Spam
-only; no functional impact. Fix later: restrict joint_state_broadcaster's
-published joints, or model the synthetic joint. Tracked, not done.
+**Gripper defect fixed (2026-06-06):** Both fingers now appear in `/joint_states`
+as `gripper_left_joint` / `gripper_right_joint` (no `_mimic` suffix), TF resolves for
+`gripper_right_link`, both fingers move physically in Gazebo, and the 50 Hz
+`gripper_right_joint_mimic not found` spam from move_group is eliminated. All 5 goals
+from the gripper-defect task verified.
 
 ---
 
