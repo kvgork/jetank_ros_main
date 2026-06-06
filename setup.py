@@ -29,6 +29,7 @@ setup(
         'console_scripts': [
             'test_drive = jetank_ros2_main.scripts.test_drive:main',
             'test_cameras = jetank_ros2_main.scripts.test_cameras:main',
+            'gripper_mimic_relay = jetank_ros_main.gripper_mimic_relay:main',
         ],
     },
 )
