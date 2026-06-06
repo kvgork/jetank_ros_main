@@ -11,7 +11,7 @@
 
 [![ROS 2 Humble](https://img.shields.io/badge/ROS_2-Humble-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/humble/)
 [![Jetson Orin Nano](https://img.shields.io/badge/NVIDIA-Jetson_Orin_Nano_Super-76B900?logo=nvidia&logoColor=white)](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/)
-[![Gazebo Fortress](https://img.shields.io/badge/Gazebo-Fortress-FA6607?logo=gazebo&logoColor=white)](https://gazebosim.org/)
+[![Ignition Gazebo Fortress](https://img.shields.io/badge/Ignition_Gazebo-Fortress-FA6607)](https://gazebosim.org/docs/fortress/)
 [![Pixi](https://img.shields.io/badge/env-pixi%20%2F%20RoboStack-f9a03c)](https://prefix.dev/)
 [![C++](https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white)](#)
 [![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](#)
@@ -78,7 +78,7 @@ flowchart TB
 
     subgraph io["Interfaces"]
         WEB["jetank_web_control<br/>browser UI"]
-        SIM["jetank_simulation<br/>Gazebo Fortress worlds"]
+        SIM["jetank_simulation<br/>Ignition Gazebo worlds"]
     end
 
     MAIN["jetank_ros_main<br/>(integration seed: launch, worlds, configs, install.sh)"]
@@ -100,7 +100,7 @@ flowchart TB
 | [`jetank_navigation`](https://github.com/kvgork/jetank_navigation) | ament_cmake | Nav2 + slam_toolbox + RPLidar + IMU bringup |
 | [`jetank_moveit_config`](https://github.com/kvgork/jetank_moveit_config) | ament_cmake | MoveIt 2 motion-planning config for the arm |
 | [`jetank_manipulation`](https://github.com/kvgork/jetank_manipulation) | ament_cmake | Open-loop preset `GraspObject` action server |
-| [`jetank_simulation`](https://github.com/kvgork/jetank_simulation) | ament_cmake | Gazebo Fortress (ros-gz) worlds + launch |
+| [`jetank_simulation`](https://github.com/kvgork/jetank_simulation) | ament_cmake | Ignition Gazebo Fortress (ros-gz) worlds + launch |
 | [`jetank_web_control`](https://github.com/kvgork/jetank_web_control) | ament_python | Browser remote-control node (MJPEG + WebSocket) |
 
 ---
@@ -192,7 +192,7 @@ pixi run urdf                       # robot model in RViz
 ## 🛠️ Tech & skills demonstrated
 
 `ROS 2 Humble` · `C++17` · `Python` · `ros2_control` · `Nav2` · `slam_toolbox` ·
-`MoveIt 2` · `Gazebo Fortress (ros-gz)` · `OpenCV` (GPU stereo) · `YOLO11n` ·
+`MoveIt 2` · `Ignition Gazebo Fortress (ros-gz)` · `OpenCV` (GPU stereo) · `YOLO11n` ·
 `URDF / xacro` · `pixi / RoboStack` · `libgpiod` · `WebSocket / MJPEG` ·
 `NVIDIA Jetson` embedded integration
 
