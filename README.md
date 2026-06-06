@@ -23,6 +23,18 @@
 
 ---
 
+## 🎯 Project goal
+
+**Build a working robot by standing on the shoulders of proven, existing software — then make every part swappable.**
+
+- **Reuse first.** Lean on mature, battle-tested stacks — **Nav2** for navigation, **MoveIt 2** for arm planning, **`ros2_control`** for hardware, **slam_toolbox** for mapping, **Gazebo** for simulation — instead of reinventing them. Get a capable robot running fast.
+- **Modular by design.** Each capability is an independent ROS 2 package with clean topic/action/TF interfaces. Swap any module for your own implementation without touching the rest — replace the Nav2 stack with a custom planner, the YOLO detector with your own model, or the motor driver with different hardware, as long as the interface contract holds.
+- **Learn by replacing.** The off-the-shelf module is both the baseline *and* the reference spec. Once it works end-to-end, rip out one piece and build it yourself — the surrounding system keeps the bar honest.
+
+> Result: a robot that works **today** on existing software, and a clean seam to grow your own components into **tomorrow**.
+
+---
+
 ## ✨ Highlights
 
 - 🧩 **9-package modular workspace** — base, description, perception, navigation, manipulation, detection, simulation, web control, and an integration seed package.
