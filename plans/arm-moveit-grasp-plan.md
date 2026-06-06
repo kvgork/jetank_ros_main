@@ -56,9 +56,40 @@ sim/real selected by the existing `use_sim` ros2_control toggle).
 
 ## Phases
 
-### Phase A — MoveIt2 arm execution verified in sim
-**Repos:** `jetank_moveit_config`, `jetank_description` (read-only check), `jetank_simulation` (read-only)
+### Phase A — MoveIt2 arm execution verified in sim   ✅ DONE (2026-06-06)
+**Repos:** `jetank_moveit_config`, `jetank_description`, `jetank_motor_control`, `jetank_simulation`, `jetank_manipulation`
 **Goal:** prove move_group can PLAN and EXECUTE arm trajectories + gripper open/close in Gazebo.
+
+**Outcome:** A2 (arm plan+execute via MoveIt2) and A3 (gripper open/close) both
+verified headless in Gazebo Fortress. Full `GraspObject` sequence runs
+`success=true` with arm + gripper actuating; `/joint_states` confirmed.
+
+**Key fixes discovered (gotchas for future work):**
+- `--headless-rendering` segfaults the conda-forge Ogre2 build (no EGL). Removed
+  from `jetank_simulation/launch/gazebo_headless.launch.py`; with `DISPLAY` set,
+  GLX works in server-only (`-s`) mode.
+- **Gazebo Fortress does NOT enforce the URDF `<mimic>` tag in physics.** The
+  parallel-jaw gripper needs ros2_control's *native* mimic
+  (`<param name="mimic">gripper_left_joint</param>` + `multiplier`) on
+  `gripper_right_joint`, and the URDF `<mimic>` tag must be REMOVED (it creates a
+  physics constraint that fights the controller and stalls the joint).
+- Gripper uses `position_controllers/GripperActionController` on
+  `gripper_left_joint` (`/gripper_controller/gripper_cmd`,
+  `control_msgs/action/GripperCommand`), registered with MoveIt as a
+  `GripperCommand` controller. `grasp_server` commands it via an action client
+  (replaced the old Float64MultiArray publisher).
+- Prismatic finger joints needed effort raised 0.5→5 N and contact `kp` 1e6→1e4 +
+  reduced damping/friction so ign_ros2_control's low internal gain can move them.
+
+**Known residual (non-blocking):** move_group logs `Joint
+'gripper_right_joint_mimic' not found in model 'jetank'` at ~50 Hz — the
+synthetic mimic state from joint_state_broadcaster isn't in MoveIt's model. Spam
+only; no functional impact. Fix later: restrict joint_state_broadcaster's
+published joints, or model the synthetic joint. Tracked, not done.
+
+---
+
+#### Original Phase A task list (for reference)
 
 Tasks:
 - A1. Launch `moveit_sim.launch.py` (Gazebo + move_group + controllers). Confirm
