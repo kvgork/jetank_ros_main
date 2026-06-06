@@ -3,6 +3,10 @@ repositories:
     type: git
     url: git@github.com:kvgork/jetank_detection.git
     version: main
+  jetank_manipulation:
+    type: git
+    url: git@github.com:kvgork/jetank_manipulation.git
+    version: main
   jetank_motor_control:
     type: git
     url: git@github.com:kvgork/jetank_motor_control.git
