@@ -228,6 +228,37 @@ pixi run urdf                       # robot model in RViz
 
 ---
 
+## 📡 ROS 2 API
+
+Each package documents its own ROS 2 interface (nodes, topics, actions, services, parameters) in its README:
+
+| Package | API doc |
+|---|---|
+| `jetank_motor_control` | [README](https://github.com/kvgork/jetank_motor_control#ros-2-api) — `robot_controller` node, `/cmd_vel`, diff-drive/arm/gripper controllers |
+| `jetank_perception` | [README](https://github.com/kvgork/jetank_perception#ros-2-api) — `stereo_camera_node` / `camera_node`, image/disparity/`points` topics, calibration services |
+| `jetank_detection` | [README](https://github.com/kvgork/jetank_detection#topics) — `sock_detector` lifecycle node, `DetectSocks` action, `/detections/socks` |
+| `jetank_navigation` | [README](https://github.com/kvgork/jetank_navigation#ros-2-api) — `icm20948_imu` node + Nav2 / slam_toolbox / RPLidar launch wiring |
+| `jetank_moveit_config` | [README](https://github.com/kvgork/jetank_moveit_config#ros-2-api) — `move_group`, `follow_joint_trajectory` / `gripper_cmd` actions |
+| `jetank_manipulation` | [README](https://github.com/kvgork/jetank_manipulation#ros-2-api) — `grasp_server`, `GraspObject` action |
+| `jetank_simulation` | [README](https://github.com/kvgork/jetank_simulation#ros-2-api) — `ros_gz_bridge` topics, controllers, worlds |
+| `jetank_web_control` | [README](https://github.com/kvgork/jetank_web_control#ros-2-api) — `web_control_node` / `cmd_vel_bridge`, `NavigateToPose` + `GraspObject` clients |
+| `jetank_description` | [README](https://github.com/kvgork/jetank_description#ros-2-api) — URDF/xacro model + in-model sensor topics (no runtime nodes) |
+
+This seed package itself runs only one helper node:
+
+### Nodes
+
+| Node name | Executable | Role |
+|---|---|---|
+| `gripper_mimic_relay` | `gripper_mimic_relay` | Sim-only relay: mirrors the left gripper finger to the right so Gazebo Fortress moves both jaws (works around Fortress not enforcing URDF `<mimic>`). |
+
+| Direction | Topic | Type |
+|---|---|---|
+| sub | `/joint_states` | `sensor_msgs/JointState` |
+| pub | `/gripper_right_mimic_controller/commands` | `std_msgs/Float64MultiArray` |
+
+Plus two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
+
 ## 📝 License
 
 [MIT](LICENSE) © 2026 Koen van Gorkom
