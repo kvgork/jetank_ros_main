@@ -7,16 +7,20 @@ from launch.substitutions import PathJoinSubstitution
 def generate_launch_description():
     pkg_jetank_perception = FindPackageShare('jetank_perception')
 
-    # Point cloud generation node (processes simulated stereo images)
-    point_cloud_node = Node(
+    # Stereo camera node driven by simulated stereo image topics (gz).
+    # In ros_topics mode it subscribes to the simulated stereo stream instead of
+    # capturing from CSI cameras, and produces DisparityImage + PointCloud2.
+    stereo_camera_node = Node(
         package='jetank_perception',
-        executable='point_cloud_node',
-        name='point_cloud_node',
+        executable='stereo_camera_node',
+        name='stereo_camera_node',
+        namespace='stereo_camera',
         parameters=[
             PathJoinSubstitution([pkg_jetank_perception, 'config', 'stereo_camera_config.yaml']),
             {
                 'use_sim_time': True,
-                'camera.use_hardware_acceleration': False,  # No CUDA in sim
+                'camera.use_hardware_acceleration': False,  # No CUDA in sim -> CPU SGBM/BM
+                'input_source': 'ros_topics',
             }
         ],
         remappings=[
@@ -27,5 +31,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        point_cloud_node
+        stereo_camera_node
     ])
