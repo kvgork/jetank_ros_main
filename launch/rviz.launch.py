@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 RViz visualization launch file for JeTank robot.
 
 Launches RViz with comprehensive configuration displaying:
@@ -39,7 +39,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Generate RViz launch description."""
-
     # Get package directory
     pkg_jetank_main = get_package_share_directory('jetank_ros_main')
 

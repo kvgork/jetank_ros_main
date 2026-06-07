@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Unified launch file for complete JeTank robot system.
 
 Launches integrated system with:
@@ -55,7 +55,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     """Generate unified launch description."""
-
     # ============================================================================
     # PACKAGE DIRECTORIES
     # ============================================================================

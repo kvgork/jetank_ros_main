@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Differential Drive Test Script for JeTank Simulation
+Differential Drive Test Script for JeTank Simulation.
 
-Tests basic movement commands to verify diff_drive_controller is working correctly.
+Tests basic movement commands to verify diff_drive_controller works.
 """
 
 import rclpy
@@ -32,11 +32,11 @@ class DriveTest(Node):
         self.get_logger().info('Drive Test Node initialized')
 
     def odom_callback(self, msg):
-        """Store current odometry for position tracking"""
+        """Store current odometry for position tracking."""
         self.current_pose = msg.pose.pose
 
     def publish_velocity(self, linear_x, angular_z, duration):
-        """Publish velocity command for specified duration"""
+        """Publish velocity command for specified duration."""
         msg = Twist()
         msg.linear.x = linear_x
         msg.angular.z = angular_z
@@ -50,13 +50,13 @@ class DriveTest(Node):
             rate.sleep()
 
     def stop(self):
-        """Stop the robot"""
+        """Stop the robot."""
         msg = Twist()
         self.publisher.publish(msg)
         time.sleep(0.5)
 
     def wait_for_odom(self, timeout=5.0):
-        """Wait for odometry messages to start"""
+        """Wait for odometry messages to start."""
         self.get_logger().info('Waiting for odometry...')
         start_time = time.time()
 
@@ -71,7 +71,7 @@ class DriveTest(Node):
         return True
 
     def test_forward(self):
-        """Test forward motion"""
+        """Test forward motion."""
         self.get_logger().info('=== Test 1: Forward Motion ===')
         self.get_logger().info('Driving forward at 0.2 m/s for 2 seconds...')
 
@@ -87,7 +87,7 @@ class DriveTest(Node):
             self.get_logger().info('✓ Forward motion test complete\n')
 
     def test_backward(self):
-        """Test backward motion"""
+        """Test backward motion."""
         self.get_logger().info('=== Test 2: Backward Motion ===')
         self.get_logger().info('Driving backward at -0.2 m/s for 2 seconds...')
 
@@ -103,7 +103,7 @@ class DriveTest(Node):
             self.get_logger().info('✓ Backward motion test complete\n')
 
     def test_rotation_left(self):
-        """Test left rotation"""
+        """Test left rotation."""
         self.get_logger().info('=== Test 3: Left Rotation ===')
         self.get_logger().info('Rotating left at 0.5 rad/s for 3.14 seconds (90 degrees)...')
 
@@ -113,7 +113,7 @@ class DriveTest(Node):
         self.get_logger().info('✓ Left rotation test complete\n')
 
     def test_rotation_right(self):
-        """Test right rotation"""
+        """Test right rotation."""
         self.get_logger().info('=== Test 4: Right Rotation ===')
         self.get_logger().info('Rotating right at -0.5 rad/s for 3.14 seconds (90 degrees)...')
 
@@ -123,7 +123,7 @@ class DriveTest(Node):
         self.get_logger().info('✓ Right rotation test complete\n')
 
     def test_arc(self):
-        """Test curved motion (arc)"""
+        """Test curved motion (arc)."""
         self.get_logger().info('=== Test 5: Arc Motion ===')
         self.get_logger().info('Driving in arc (linear + angular) for 3 seconds...')
 
@@ -133,7 +133,7 @@ class DriveTest(Node):
         self.get_logger().info('✓ Arc motion test complete\n')
 
     def run_all_tests(self):
-        """Run complete test suite"""
+        """Run complete test suite."""
         self.get_logger().info('\n' + '='*50)
         self.get_logger().info('JeTank Differential Drive Test Suite')
         self.get_logger().info('='*50 + '\n')

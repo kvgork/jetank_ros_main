@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Stereo Camera Validation Script for JeTank Simulation
+Stereo Camera Validation Script for JeTank Simulation.
 
-Validates that stereo cameras are publishing correctly with proper synchronization.
+Validates that stereo cameras publish correctly and are synchronized.
 """
 
 import rclpy
@@ -54,29 +54,29 @@ class CameraTest(Node):
         self.get_logger().info('Camera Test Node initialized')
 
     def left_image_callback(self, msg):
-        """Count left camera images and store timestamps"""
+        """Count left camera images and store timestamps."""
         self.left_image_count += 1
         timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.left_timestamps.append(timestamp)
 
     def right_image_callback(self, msg):
-        """Count right camera images and store timestamps"""
+        """Count right camera images and store timestamps."""
         self.right_image_count += 1
         timestamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.right_timestamps.append(timestamp)
 
     def left_info_callback(self, msg):
-        """Store left camera info"""
+        """Store left camera info."""
         if self.left_info is None:
             self.left_info = msg
 
     def right_info_callback(self, msg):
-        """Store right camera info"""
+        """Store right camera info."""
         if self.right_info is None:
             self.right_info = msg
 
     def wait_for_messages(self, duration=5.0):
-        """Wait for camera messages"""
+        """Wait for camera messages."""
         self.get_logger().info(f'Waiting {duration} seconds for camera messages...')
 
         start_time = time.time()
@@ -87,7 +87,7 @@ class CameraTest(Node):
             rate.sleep()
 
     def check_image_reception(self):
-        """Check if images are being received"""
+        """Check if images are being received."""
         self.get_logger().info('\n=== Image Reception Test ===')
 
         if self.left_image_count == 0:
@@ -104,14 +104,14 @@ class CameraTest(Node):
         # Check image rate (should be ~30 Hz)
         if len(self.left_timestamps) > 1:
             intervals = [self.left_timestamps[i+1] - self.left_timestamps[i]
-                        for i in range(len(self.left_timestamps)-1)]
+                         for i in range(len(self.left_timestamps)-1)]
             avg_interval = sum(intervals) / len(intervals)
             fps = 1.0 / avg_interval if avg_interval > 0 else 0
             self.get_logger().info(f'Left camera rate: {fps:.1f} Hz (expected ~30 Hz)')
 
         if len(self.right_timestamps) > 1:
             intervals = [self.right_timestamps[i+1] - self.right_timestamps[i]
-                        for i in range(len(self.right_timestamps)-1)]
+                         for i in range(len(self.right_timestamps)-1)]
             avg_interval = sum(intervals) / len(intervals)
             fps = 1.0 / avg_interval if avg_interval > 0 else 0
             self.get_logger().info(f'Right camera rate: {fps:.1f} Hz (expected ~30 Hz)')
@@ -119,7 +119,7 @@ class CameraTest(Node):
         return True
 
     def check_camera_info(self):
-        """Validate camera info parameters"""
+        """Validate camera info parameters."""
         self.get_logger().info('\n=== Camera Info Validation ===')
 
         if self.left_info is None:
@@ -137,10 +137,10 @@ class CameraTest(Node):
         self.get_logger().info(f'Right camera: {self.right_info.width}x{self.right_info.height}')
 
         if self.left_info.width != 640 or self.left_info.height != 360:
-            self.get_logger().warn(f'⚠ Left camera resolution is not 640x360!')
+            self.get_logger().warn('⚠ Left camera resolution is not 640x360!')
 
         if self.right_info.width != 640 or self.right_info.height != 360:
-            self.get_logger().warn(f'⚠ Right camera resolution is not 640x360!')
+            self.get_logger().warn('⚠ Right camera resolution is not 640x360!')
 
         # Check intrinsics
         fx_left = self.left_info.k[0]
@@ -154,7 +154,7 @@ class CameraTest(Node):
         return True
 
     def check_synchronization(self):
-        """Check timestamp synchronization between cameras"""
+        """Check timestamp synchronization between cameras."""
         self.get_logger().info('\n=== Synchronization Test ===')
 
         if len(self.left_timestamps) == 0 or len(self.right_timestamps) == 0:
@@ -173,7 +173,7 @@ class CameraTest(Node):
         return True
 
     def run_all_tests(self):
-        """Run complete camera validation suite"""
+        """Run complete camera validation suite."""
         self.get_logger().info('\n' + '='*50)
         self.get_logger().info('JeTank Stereo Camera Validation Suite')
         self.get_logger().info('='*50)
