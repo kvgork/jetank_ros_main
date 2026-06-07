@@ -157,23 +157,86 @@ Tasks:
 the grasp sequence; UI shows stages and a success/fail result. Works against the
 sim stack launched by `sim_demo`/`moveit_sim`.
 
-### Phase D — Real arm hardware (GATED, final)
-**Repos:** `jetank_motor_control`
-**Goal:** make the same MoveIt2 + Grab path drive real serial-bus servos.
+### Phase D — Real arm hardware (GATED, final) — HARDWARE IMPLEMENTATION PLAN
+**Repos:** `jetank_motor_control` (plugin + controllers), `jetank_description` (real-servo
+limits/zeros), `jetank_moveit_config` (SRDF collision pairs)
+**Goal:** make the same MoveIt2 + Grab path drive the real serial-bus servos, with
+the sim as the validated reference. **Cannot be verified without the robot** — ships
+as code + the on-device checklist below.
 
-Tasks:
-- D1. Audit `JetankSerialHardware` (`ros2_control` SystemInterface) — does it map
-  S1/S2/S3/S5 + gripper(servo 4) position commands to the serial bus protocol and
-  read back positions? Complete `read()`/`write()`/`on_activate()` as needed.
-- D2. Bringup path: `moveit_bringup.launch.py` with `use_sim:=false` →
-  `ros2_control_node` + spawners against the serial plugin. Resolve the
-  param-ingest issue noted in the bringup file so `arm_controller` configures.
-- D3. Bench test on the real robot: home/ready moves, gripper open/close, then the
-  full Grab sequence at low speed. Tune `grasp_poses.yaml` for the real table.
+#### Real arm kinematics (confirmed with the user, 2026-06-06) — calibration reference
+The sim URDF limits were tuned to the real servo travel this session. The hardware
+plugin MUST map each servo's raw range to these URDF joint radians, getting the
+**zero offset and direction sign** right per servo (this is the crux of sim→real):
 
-**Acceptance (hardware-gated, NOT this session):** real arm executes a named-pose
-move and the Grab sequence safely. **Cannot be verified without the robot** — this
-phase ships as code + a test checklist; user runs it on-device.
+| Joint | Servo ID | Range | URDF zero = | URDF limit (rad) |
+|-------|----------|-------|-------------|------------------|
+| S1 (base yaw)    | 1 | ±135° | forward      | [-2.35, 2.35] |
+| S2 (shoulder)    | 2 | 180°  | upper arm **UP**; +S2 = forward | [-1.57, **2.356**] |
+| S3 (elbow)       | 3 | 270°  | forearm **colinear** with upper arm | [**-2.356, 2.356**] |
+| S5 (wrist roll)  | 5 | 180°  | —            | [-1.57, 1.57] |
+| gripper          | 4 | —     | see gripper note | left joint 0..0.04 m |
+
+- **S2 zero = arm pointing up**, and it can rotate ~45° **past** horizontal-forward
+  (hence the +2.356 upper limit) — needed for the low forward reach.
+- **S3 zero = straight elbow**, ±135° travel.
+- **Per-servo zero offset + sign calibration is mandatory.** A servo "center" tick
+  rarely equals URDF 0; the plugin must add a configurable offset (and possibly
+  invert sign) per joint so the real arm matches the planned poses. Wrong offset =
+  arm drives to the wrong place / into itself — calibrate at LOW speed first.
+
+#### Gripper on real hardware
+- **One servo (ID 4)** drives `gripper_left_joint`; `gripper_right_joint` is a
+  **mechanical** mimic (no servo) — command ONLY the left joint.
+- **Do NOT launch `gripper_mimic_relay` or `gripper_right_mimic_controller`** on the
+  real robot — they are **sim-only** (Gazebo Fortress doesn't enforce URDF `<mimic>`
+  in physics; real hardware is mechanically linked). Real bringup spawns only
+  `joint_state_broadcaster`, `arm_controller` (FollowJointTrajectory),
+  `gripper_controller` (GripperActionController on `gripper_left_joint`).
+- Calibrate `gripper.open_width`/`close_width` (grasp_poses.yaml) to the real servo's
+  open/closed encoder positions. The sim finger geometry (origins ±0.018) is cosmetic;
+  what matters on HW is the servo-4 → jaw mapping.
+
+#### Camera-on-arm collision (affects reachable workspace)
+- The camera rides the arm (`imu_link←camera_link←S1_link`), so deep forward-down
+  poses self-collide `S5_link`↔`camera_link`; move_group refuses them (lowest
+  collision-free reach ≈ 0.08 m above floor in sim).
+- On hardware: verify whether the real parts actually collide at those poses. If the
+  primitive collision boxes are over-conservative and the real wrist clears the
+  camera, **disable the `S5_link`↔`camera_link` pair** in `jetank.srdf`
+  `disable_collisions` to unlock lower reach. If they really collide, the camera
+  mount must move to reach the floor.
+
+#### Tasks
+- D1. **Serial plugin** — implement/complete `JetankSerialHardware` (`ros2_control`
+  SystemInterface, `/dev/ttyTHS1` @1 Mbaud): `on_init` (parse servo_id + per-joint
+  zero-offset/sign params), `on_configure`, `on_activate`, `read()` (servo position →
+  joint rad, apply inverse calibration), `write()` (joint rad → servo ticks, apply
+  calibration + clamp to limits). Add per-joint `offset`/`direction` params to the
+  `<ros2_control>` block in `ros2_control.xacro` (under `<xacro:unless use_sim>`).
+- D2. **Calibration utility** — a small node/script to jog each servo and record the
+  tick↔radian mapping (zero offset + sign), writing the values back into the URDF
+  params. Run BEFORE any trajectory.
+- D3. **Bringup** — `moveit_bringup.launch.py use_sim:=false` → `ros2_control_node` +
+  spawners (real controller set only; no mimic relay). Resolve the controller
+  param-ingest issue noted in `moveit_bringup.launch.py` so `arm_controller`
+  configures on the RoboStack build.
+- D4. **Bench test (low speed)** — checklist below.
+- D5. **Tune** `grasp_poses.yaml` for the real table height / object; re-confirm the
+  camera-collision decision on real geometry.
+
+#### On-device test checklist (user runs)
+1. E-stop / kill-switch reachable; `velocity_scaling`/`acceleration_scaling` low (≤0.1).
+2. `gpiochip`/serial perms OK; plugin loads (`ros2 control list_hardware_interfaces`).
+3. Per-servo calibration verified: command URDF 0 → arm in the documented zero pose.
+4. Single-joint jogs (small) match expected direction for S1/S2/S3/S5.
+5. Gripper open/close on servo 4; jaw matches commanded widths.
+6. Named-pose move `home`→`ready`→`home` via `arm_controller`.
+7. Full `GraspObject` at low speed; confirm safe retreat-to-home on abort.
+
+**Acceptance (hardware-gated):** real arm executes a named-pose move and the Grab
+sequence safely at low speed, with calibrated servo offsets. Not verifiable without
+the robot.
 
 ---
 
@@ -197,6 +260,10 @@ phase ships as code + a test checklist; user runs it on-device.
 
 ## Branches
 
-Fresh `feature/arm-moveit-grasp` in: `jetank_moveit_config`, `jetank_web_control`,
-`jetank_motor_control`, `jetank_ros_main`, and new repo `jetank_manipulation`
-(initial branch `main`, then feature branch). All cut from current `main`.
+`feature/arm-moveit-grasp` in all touched repos: `jetank_description`,
+`jetank_motor_control`, `jetank_moveit_config`, `jetank_simulation`,
+`jetank_web_control`, `jetank_ros_main`, and new repo `jetank_manipulation`.
+
+Phases A–C done + verified in sim (arm via MoveIt2, web Grab button, gripper
+closes, forward-down reach). Phase D (hardware) is the spec above. Merged to
+`main` 2026-06-07.
