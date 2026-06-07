@@ -1,29 +1,30 @@
 #!/usr/bin/env python3
 """One-shot simulation demo bring-up for the JeTank robot.
 
-Brings up everything you need to *see* and *drive* the robot in Gazebo:
+Brings up the WHOLE demo with no arguments — `ros2 launch jetank_ros_main
+sim_demo.launch.py` starts:
 
-  - Gazebo Fortress (GUI) with a selectable world (obstacle_course by default,
-    so the lidar has walls + cylinders to range against)
-  - The robot spawned with gz_ros2_control (diff-drive base + arm + gripper)
-  - Simulated lidar (/scan), IMU (/imu) and stereo cameras, bridged to ROS 2
-  - RViz for visualisation
-  - Optional SLAM (slam_toolbox) so you can build a map while you drive
+  - Gazebo Fortress (GUI), sock_arena world (default)
+  - Robot via gz_ros2_control (diff-drive base + arm + gripper)
+  - Lidar (/scan), IMU (/imu), stereo cameras bridged to ROS 2
+  - RViz, SLAM (slam_toolbox)
+  - Arm: MoveIt move_group + arm_controller + the grasp server (/grasp_object)
+  - Web control on :8080 (drive + Grab button)
+  - Sock detector, AUTO-configured + activated (loads ~/models/sock_sim.pt)
 
-This is the simulation counterpart to ``navigation_full.launch.py`` (which is
-for the real robot). It deliberately reuses the sim-aware path of
-``navigation_full`` (``use_sim_time:=true``), which skips the hardware nodes.
+This is the simulation counterpart to ``navigation_full.launch.py`` (real robot).
+It reuses the sim-aware path of ``navigation_full`` (``use_sim_time:=true``).
 
 Usage::
 
-    # Default: obstacle world + RViz + SLAM
+    # Full demo (arm + web + detection + SLAM + RViz), sock_arena
     ros2 launch jetank_ros_main sim_demo.launch.py
 
-    # Pick a different world, no SLAM (plain robot view)
-    ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena slam:=false
+    # Turn pieces off
+    ros2 launch jetank_ros_main sim_demo.launch.py detect:=false arm:=false slam:=false
 
-    # Sock arena with live detection enabled
-    ros2 launch jetank_ros_main sim_demo.launch.py world:=sock_arena detect:=true slam:=false
+    # Different world / detection model
+    ros2 launch jetank_ros_main sim_demo.launch.py world:=house model_path_sim:=/path/to.pt
 
 Drive the base from another terminal (note: TwistStamped on the controller topic)::
 
@@ -36,9 +37,11 @@ Move the arm interactively with MoveIt instead via::
     ros2 launch jetank_moveit_config moveit_sim.launch.py
 """
 
+import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
@@ -58,8 +61,11 @@ def generate_launch_description():
     detect = LaunchConfiguration('detect')
     model_path_sim = LaunchConfiguration('model_path_sim')
 
+    # Defaults bring up the WHOLE demo with no args: sock_arena world + SLAM +
+    # RViz + arm (MoveIt + grasp server) + web UI + sock detection (auto-activated).
+    # Turn pieces off explicitly, e.g. `sim_demo.launch.py arm:=false detect:=false`.
     declare_world = DeclareLaunchArgument(
-        'world', default_value='house',
+        'world', default_value='sock_arena',
         description='World to load: empty, simple_test, obstacle_course, sock_arena, house')
     declare_slam = DeclareLaunchArgument(
         'slam', default_value='true',
@@ -68,17 +74,18 @@ def generate_launch_description():
         'rviz', default_value='true',
         description='Launch RViz')
     declare_arm = DeclareLaunchArgument(
-        'arm', default_value='false',
-        description='Also start MoveIt move_group and activate arm_controller')
+        'arm', default_value='true',
+        description='Start MoveIt move_group + arm_controller + the grasp server (Grab action)')
     declare_web = DeclareLaunchArgument(
-        'web', default_value='false',
-        description='Also start the web control in sim mode (port 8080, cmd_vel bridge)')
+        'web', default_value='true',
+        description='Start the web control in sim mode (port 8080, cmd_vel bridge, Grab button)')
     declare_detect = DeclareLaunchArgument(
-        'detect', default_value='false',
-        description='Also start the sock detector node (jetank_detection) against the sim left camera')
+        'detect', default_value='true',
+        description='Start + auto-activate the sock detector against the sim left camera')
     declare_model_path_sim = DeclareLaunchArgument(
-        'model_path_sim', default_value='',
-        description='Path to the trained sim model (.pt/.engine) for the sock detector (detect:=true)')
+        'model_path_sim', default_value=os.path.expanduser('~/models/sock_sim.pt'),
+        description='Trained sim model (.pt/.engine) for the sock detector. Default '
+                    '~/models/sock_sim.pt; detector logs a warning if absent.')
 
     # 1. Gazebo + robot + sensors + controllers (sim-time, GUI). When arm:=true
     #    the arm_controller is started active so MoveIt can drive it.
@@ -152,9 +159,7 @@ def generate_launch_description():
     #    synthetic Gazebo imagery differs from real camera frames.
     #    The sim publishes /stereo_camera/left/image_raw — same as the real robot,
     #    so no remapping is needed. Runs continuous (live) by default.
-    #    After launch, lifecycle transitions are still required:
-    #      ros2 lifecycle set /sock_detector configure
-    #      ros2 lifecycle set /sock_detector activate
+    #    The detector lifecycle is auto-activated by detector_autostart below.
     detect_stack = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('jetank_detection'),
@@ -165,6 +170,30 @@ def generate_launch_description():
             'continuous': 'true',
             'model_path_sim': model_path_sim,
         }.items(),
+    )
+
+    # 7. Grasp server (jetank_manipulation): advertises /grasp_object and backs the
+    #    web Grab button. Needs the arm, so gate on arm:=true.
+    grasp_stack = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('jetank_manipulation'),
+                                  'launch', 'grasp.launch.py'])),
+        condition=IfCondition(arm),
+        launch_arguments={'use_sim_time': 'true'}.items(),
+    )
+
+    # 8. Auto-activate the sock_detector lifecycle node so the demo is one command
+    #    (no manual `ros2 lifecycle set`). Polls until the node exists (Gazebo is
+    #    slow to come up), then configure -> activate. Non-fatal if the model is
+    #    missing — the detector just stays unconfigured and logs a warning.
+    detector_autostart = ExecuteProcess(
+        condition=IfCondition(detect),
+        cmd=['bash', '-c',
+             'for i in $(seq 1 90); do '
+             'ros2 node list 2>/dev/null | grep -q /sock_detector && break; sleep 2; done; '
+             'ros2 lifecycle set /sock_detector configure && sleep 3 && '
+             'ros2 lifecycle set /sock_detector activate'],
+        output='screen',
     )
 
     ld = LaunchDescription()
@@ -181,4 +210,6 @@ def generate_launch_description():
     ld.add_action(arm_stack)
     ld.add_action(web_stack)
     ld.add_action(detect_stack)
+    ld.add_action(grasp_stack)
+    ld.add_action(detector_autostart)
     return ld
