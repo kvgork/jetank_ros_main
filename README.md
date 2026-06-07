@@ -259,6 +259,29 @@ This seed package itself runs only one helper node:
 
 Plus two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
 
+---
+
+## 🧪 Tests
+
+```bash
+# pytest directly (fast, no ROS context needed):
+pixi run -- bash -c 'cd src/jetank_ros_main && python -m pytest test/ -q'
+
+# or via colcon (same tests, collected through ament):
+colcon test --packages-select jetank_ros_main
+colcon test-result --verbose
+```
+
+> `setup.py` declares pytest via `extras_require={'test': ['pytest']}` (not the legacy `tests_require`, which modern setuptools silently drops and made colcon report `NO TESTS RAN`).
+
+| Test file | Imports | Asserts |
+|---|---|---|
+| `test/test_import.py` | `jetank_ros_main.gripper_mimic_relay` | The module imports and exposes `GripperMimicRelay` + `main`, and the right-finger command topic string is unchanged (interface contract). |
+| | | The pure `_js_callback` mimic logic (built via `object.__new__`, no ROS Node): forwards the `gripper_left_joint` position, skips when the joint is absent / the position array is too short / empty, dedups changes below the 1e-6 threshold, re-publishes above it, and fires on the first message from the `-1.0` sentinel. |
+| `test/test_flake8.py` | `ament_flake8` | flake8 (PEP 8) is clean across the package. |
+| `test/test_pep257.py` | `ament_pep257` | Docstrings follow PEP 257. |
+| `test/test_copyright.py` | `ament_copyright` | Copyright headers present — **skipped** (no headers placed yet). |
+
 ## 📝 License
 
 [MIT](LICENSE) © 2026 Koen van Gorkom
