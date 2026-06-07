@@ -1,9 +1,21 @@
 # Plan — Sock 3D point-cloud blob (toward grasp poses)
 
-**Status:** plan / not started · **Created:** 2026-06-07 · **Mode:** sim-first, sim + real
+**Status:** Phase 0 done (empirical) · **Created:** 2026-06-07 · **Mode:** sim-first, sim + real
 **Goal:** From a detected sock, produce a clean 3D point-cloud *blob* (the points belonging to that
 sock, in a stable frame) that a later stage can turn into a grasp pose. Grasp-pose generation itself is
 **out of scope** here — this plan stops at "one PointCloud2 blob + centroid per sock".
+
+---
+
+## Phase 0 findings (2026-06-07, empirical — sock_arena sim, RTX 3080)
+
+1. ✅ **Sim stereo camera works**: `/stereo_camera/{left,right}/image_raw` + `camera_info` publish at ~8 Hz (gz sensors via `ros_gz_image`).
+2. ⛔ **No disparity/pointcloud node runs in sim today.** `stereo_camera_node` hardcodes `CameraFactory::create_camera(JETSON_CSI)` → it is a **Jetson-CSI hardware-capture** node (GStreamer/`VideoCapture`), cannot run in sim. The intended sim variant `point_cloud_node` is referenced by `stereo_camera_sim.launch.py` but **is not built** (perception only builds `stereo_camera_node` + `camera_node`). → the sim launch is broken and **sim has no `DisparityImage`/`PointCloud2`**. *(Corrects the earlier "continuous cloud already exists in sim" assumption.)*
+3. ✅ **TF chain exists**: `base_footprint→base_link→chassis→…→camera_link→camera_left_optical_frame`; `base_link → camera_left_optical_frame = [0.105, 0.027, 0.087]`. ⚠️ **rotation is identity** → confirms the known sim **optical-frame orientation quirk** (CLAUDE.md): reprojected points (optical convention) would be mis-oriented once TF'd into `base_link` until the gz camera `<sensor>` frame is fixed.
+4. ✅ **Published cloud is unorganized** — confirmed by voxel + statistical + range filters in `stereo_camera_node` (compaction) → crop-by-bbox impossible; **reproject-from-disparity-ROI is the right approach** (decision §1 holds).
+5. ⚠️ Detection-alignment unverified: no `sock_sim.pt` model in the workspace → detection produces nothing here; validate in Phase 3 with the model.
+
+**Consequence — the stereo *processing* logic is reusable, only the input source differs.** `stereo_processing_strategy.hpp` (disparity strategy + `generate_pointcloud` + Q-reproject) is hardware-agnostic; `stereo_camera_node` just bolts CSI capture in front of it. So the fix is to feed that same processing from ROS image topics in sim. This adds a **prerequisite phase** (see §5 Phase 1) and unifies sim/real at the `DisparityImage` topic.
 
 ---
 
@@ -45,7 +57,8 @@ per-frame cost is measured on the Orin Nano. It is a debug aid, **not** the gras
   (bbox in left-image pixels; header copied from the image → left optical frame). Has both a continuous
   mode and a `DetectSocks` action.
 - **Sim** (`jetank_simulation`): gz stereo sensors bridged to `/stereo_camera/{left,right}/image_raw`
-  + `camera_info` at ~30 Hz via `ros_gz_image`. **Same topics as real** → one code path.
+  + `camera_info` (~8 Hz observed) via `ros_gz_image`. **Same image topics as real**, BUT **no node
+  consumes them into disparity/pointcloud** (see Phase 0 finding #2) — that node is missing.
 - **`jetank_manipulation` / `grasp_server`**: open-loop preset grasp (joint targets) via MoveIt
   `/move_action`; empty goal today. Future grasp-pose step will consume this plan's blob.
 - **Frames / TF:** `camera_left_optical_frame` exists; the camera (and IMU) **ride the arm**
@@ -56,33 +69,43 @@ per-frame cost is measured on the Orin Nano. It is a debug aid, **not** the gras
 
 ## 3. Target architecture
 
+**Unify sim and real at the `DisparityImage` (+ `camera_info`) topic.** Two interchangeable input
+sources publish it; everything downstream is source-agnostic:
+
 ```
-/stereo_camera/left/image_raw ─┐
-/stereo_camera/left/camera_info ┤ (continuous, sim+real)
-DisparityImage (perception)  ───┤
-/detections/socks (detection) ──┘
+ INPUT SOURCE (publishes DisparityImage + camera_info):
+   • REAL:  stereo_camera_node   (CSI capture → SGBM/GPU)            [exists]
+   • SIM:   stereo_proc_node     (subscribes /stereo_camera/{l,r})   [MISSING — build in Phase 1]
+            └─ both reuse stereo_processing_strategy.hpp (Q-reproject)
+                              │
+ /stereo_camera/left/camera_info ┐
+ DisparityImage  ────────────────┤  (continuous)
+ /detections/socks (detection) ──┘
                                  │   ACTION GOAL: SegmentSocks
                                  ▼
                     ┌───────────────────────────────┐
-                    │  sock_segmentation_server      │  (new; lives in jetank_perception)
+                    │  sock_segmentation_server      │  (new; in jetank_perception)
                     │  1. snapshot latest synced set │
                     │  2. per detection bbox:        │
                     │     reproject ROI via Q        │
                     │  3. filter: NaN, z-range,      │
                     │     plane removal, Euclidean    │
                     │     cluster → largest blob     │
-                    │  4. TF blob → stable frame      │
+                    │  4. select sock nearest base_link, TF → target_frame │
                     └───────────────────────────────┘
-                                 │  RESULT: SockCloud[] {cloud, centroid, label, score}
+                                 │  RESULT: SockCloud {cloud, centroid, dims, label, score}
                                  ▼
                     (future) grasp_pose_node → grasp_server
 ```
 
 **Package placement (keep modular):**
-- **Action definition** → `jetank_detection` (owns detection-domain msgs) *or* a new tiny
-  `jetank_msgs` pkg if shared more widely. Default: `jetank_detection/action/SegmentSocks.action`.
-- **Server node** → `jetank_perception` (C++; it already owns Q/reproject + PCL/OpenCV deps and the
-  strategy code to reuse). Reuse `stereo_processing_strategy`'s reproject helper for the ROI.
+- **Action definition** → `jetank_detection/action/SegmentSocks.action` (locked, decision #1).
+- **Sim stereo source** (`stereo_proc_node`) → `jetank_perception`. Prefer **refactoring
+  `stereo_camera_node`** to take an `input_source` param (`csi` | `ros_topics`) so ONE node serves both
+  (CSI capture vs `message_filters` image subscribers), with the SAME `stereo_processing_strategy`
+  downstream. Avoids a forked second node. Fix `stereo_camera_sim.launch.py` to launch it.
+- **Server node** → `jetank_perception` (C++; owns Q/reproject + PCL/OpenCV; reuse
+  `stereo_processing_strategy`'s reproject for the ROI).
 
 **Action contract** (`jetank_detection/action/SegmentSocks.action`) — decisions locked:
 ```
@@ -125,35 +148,42 @@ cleanly here.
 
 ## 5. Phased implementation (sim-first)
 
-**Phase 0 — Baseline & truth-check (sim).** Bring up `sim_demo` + `sock_arena`; confirm
-`/stereo_camera/left/image_raw`, `DisparityImage`, `PointCloud2`, and `/detections/socks` all flow and
-align in RViz. Confirm/measure: is the published cloud unorganized? what frame does disparity carry?
-does the sim camera optical-frame quirk distort geometry? **Output:** a short findings note + go/no-go
-on reprojection approach. *Accept:* sock visible in RViz cloud; bbox overlaps the sock in the left image.
+**Phase 0 — Baseline & truth-check (sim). ✅ DONE 2026-06-07.** See "Phase 0 findings" above. Camera
+OK; sim disparity/pointcloud node missing; TF chain OK with optical-frame quirk; cloud unorganized.
 
-**Phase 1 — Action interface.** Add `SegmentSocks.action` + `SockCloud.msg`; build; generate
-typesupport; stub server that returns empty result. *Accept:* `ros2 action list` shows it; goal
-round-trips.
+**Phase 1 — Restore the sim disparity source (NEW prerequisite, sim).** Make `DisparityImage` +
+`camera_info` exist in sim. Refactor `stereo_camera_node` to add an `input_source` param
+(`csi` default | `ros_topics`); in `ros_topics` mode subscribe `/stereo_camera/{left,right}/image_raw`
++ `camera_info` (`message_filters` ApproximateTime) and feed the existing `stereo_processing_strategy`
+(SGBM). Fix `stereo_camera_sim.launch.py` to launch this (it currently names the non-existent
+`point_cloud_node`). Also fix the gz camera **optical-frame** orientation (Phase 0 #3) so reprojected
+geometry is correct in `base_link`. *Accept:* `DisparityImage` + `PointCloud2` publish in sim;
+`PointCloud2` of a sock looks correct in RViz (not rotated 90°).
 
-**Phase 2 — Segmentation server (sim).** Implement in `jetank_perception`:
-sync latest (left image, `camera_info`/`Q`, `DisparityImage`, `/detections/socks`) via
-`message_filters` ApproximateTime + a latest-cache; per detection, slice the bbox from disparity,
-`reprojectImageTo3D` the ROI, drop invalid/NaN and out-of-range points, optional RANSAC plane removal
-(arena floor) + Euclidean clustering → keep largest cluster; compute centroid + AABB; TF to
-`target_frame`. *Accept:* action returns ≥1 `SockCloud` for a sock in view; centroid within a few cm of
-the true sock pose in the sim world; blob hugs the sock, not the floor.
+**Phase 2 — Action interface.** Add `jetank_detection/action/SegmentSocks.action` + `SockCloud.msg`;
+build; generate typesupport; stub server returns `found=false`. *Accept:* `ros2 action list` shows it;
+goal round-trips.
 
-**Phase 3 — Validation & debug (sim).** RViz config showing bbox + blob + centroid marker; test multi-
-sock, partial occlusion, empty scene (graceful empty result); optional `/socks/points` debug topic.
-*Accept:* correct blob count vs scene; no crash on 0 detections; centroid stable across repeats.
+**Phase 3 — Segmentation server (sim).** Implement in `jetank_perception`:
+sync latest (`camera_info`/`Q`, `DisparityImage`, `/detections/socks`) via `message_filters`
+ApproximateTime + latest-cache; per detection, slice the bbox from disparity, `reprojectImageTo3D` the
+ROI, drop invalid/NaN + out-of-range, optional RANSAC plane removal (arena floor) + Euclidean cluster →
+largest cluster; centroid + AABB; **pick the sock nearest `base_link`**; TF to `target_frame`. Default
+`publish_debug_cloud:=true` in the sim launch. *Accept:* action returns `found=true` with a `SockCloud`
+whose centroid is within a few cm of the true sim sock pose; blob hugs the sock, not the floor.
 
-**Phase 4 — Real hardware bring-up.** Run the **same** node with GPU strategy + real stereo
-calibration; verify `Q`/`camera_info`; **park the arm** before capture (camera-on-arm) or rely on
-capture-time TF; reality-gap pass: textureless socks → sparse disparity (tune SGBM/PCL filters, fill,
-min-cluster-size); confirm blob in `base_link`. *Accept:* on-robot action returns a sane blob+centroid
-for a real sock with the arm parked.
+**Phase 4 — Validation & debug (sim).** Needs `sock_sim.pt` (not in workspace — locate/retrain).
+RViz config showing bbox + blob + centroid marker; test multi-sock (nearest selected), partial
+occlusion, empty scene (`found=false`). *Accept:* nearest sock chosen correctly; no crash on 0
+detections; centroid stable across repeats.
 
-**Phase 5 — Hooks for grasp poses (interface only).** Document/stub how the future grasp-pose node
+**Phase 5 — Real hardware bring-up.** Same action/server unchanged; real source = `stereo_camera_node`
+CSI (GPU strategy) on the same `DisparityImage` topic; verify real `Q`/`camera_info`; **park the arm**
+before capture (camera-on-arm) or use capture-time TF; reality-gap pass: textureless socks → sparse
+disparity (tune SGBM/PCL filters, min-cluster-size); **profile `/socks/points` cost before enabling on
+real** (decision #4). *Accept:* on-robot action returns a sane blob+centroid for a real sock, arm parked.
+
+**Phase 6 — Hooks for grasp poses (interface only).** Document/stub how the future grasp-pose node
 consumes `SockCloud` (centroid + principal axis / top-surface → approach pose) and calls `grasp_server`.
 No grasp logic implemented here. *Accept:* documented contract + a stub node that logs a candidate pose
 from the centroid.
@@ -163,8 +193,9 @@ from the centroid.
 ## 6. Risks / gotchas
 - **Unorganized published cloud** → reproject from disparity ROI, do **not** try to index the published
   cloud by pixel.
-- **Sim camera optical-frame quirk** (CLAUDE.md) → validate blob orientation in Phase 0; fix the gz
-  `<sensor>` frame if geometry is rotated.
+- **Sim camera optical-frame quirk** (CLAUDE.md) — **confirmed in Phase 0** (`base_link→optical` rotation
+  is identity, not the optical convention) → fix the gz `<sensor>` frame in Phase 1 before trusting
+  reprojected geometry in `base_link`.
 - **Camera rides the arm** → only trust the blob's stable-frame transform with the arm parked (or use
   capture-time TF and forbid motion during capture).
 - **Textureless socks** → stereo gives sparse/holey disparity; budget PCL filtering + cluster tuning in
