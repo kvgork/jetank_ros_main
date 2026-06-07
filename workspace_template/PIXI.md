@@ -38,6 +38,33 @@ ROS2 installed.
 The colcon overlay (`install/setup.bash`) is auto-sourced by
 `scripts/pixi-activate.sh` whenever a pixi shell is entered.
 
+## Running tests
+
+```bash
+pixi run test            # colcon test across all packages
+pixi run test-results    # detailed pass/fail summary
+# single package:
+pixi run -- bash -c 'colcon test --packages-select <pkg> && colcon test-result --verbose'
+# Python packages — run pytest directly (fast, no colcon):
+pixi run -- bash -c 'cd src/<pkg> && python -m pytest test/ -q'
+```
+
+Every package ships tests that **import and exercise its own code** (not just
+linters): pytest import/pure-logic tests for the Python packages (hardware deps
+like `rclpy`/`cv2`/`torch`/`aiohttp`/`smbus` are stubbed) and `ament_add_gtest`
+header-math tests for the C++ packages.
+
+Two known **non-functional** `colcon test` failures are expected and are *not* bugs:
+
+- `ament_pep257` **D213** — conflicts with the repo's consistent `D212` docstring
+  style (the two are mutually exclusive; you cannot satisfy both).
+- `ament_xmllint` on `package.xml` — fails **offline** because it fetches the
+  REP-149 schema over the network; passes with connectivity.
+
+> For `ament_python` packages, declare pytest via `extras_require={'test': ['pytest']}`
+> in `setup.py` — the legacy `tests_require` is dropped by modern setuptools, which
+> makes `colcon test` fall back to `setup.py test` and report `NO TESTS RAN`.
+
 ## How dependencies are organised
 
 Everything lives in a single root `pixi.toml`. There are **no per-package

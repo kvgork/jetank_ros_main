@@ -1,4 +1,5 @@
-"""Gripper mimic relay node.
+"""
+Gripper mimic relay node.
 
 Subscribes to /joint_states and forwards gripper_left_joint position to
 /gripper_right_mimic_controller/commands (std_msgs/Float64MultiArray) so that
@@ -23,7 +24,12 @@ Published topic: /gripper_right_mimic_controller/commands
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 
@@ -64,7 +70,7 @@ class GripperMimicRelay(Node):
         )
 
     def _js_callback(self, msg: JointState) -> None:
-        """Forward gripper_left_joint position to gripper_right_mimic_controller."""
+        """Forward gripper_left_joint position to the right-finger topic."""
         try:
             idx = msg.name.index(self._left_joint)
         except ValueError:
@@ -81,7 +87,9 @@ class GripperMimicRelay(Node):
         cmd = Float64MultiArray()
         cmd.data = [pos]
         self._cmd_pub.publish(cmd)
-        self.get_logger().debug(f"Forwarded gripper_right position: {pos:.5f} m")
+        self.get_logger().debug(
+            f"Forwarded gripper_right position: {pos:.5f} m"
+        )
 
 
 def main(args=None) -> None:

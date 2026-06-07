@@ -13,7 +13,6 @@ def generate_launch_description():
     pkg_jetank_simulation = get_package_share_directory('jetank_simulation')
 
     # Declare world selection argument
-    world_name = LaunchConfiguration('world')
     declare_world_arg = DeclareLaunchArgument(
         'world',
         default_value='empty',

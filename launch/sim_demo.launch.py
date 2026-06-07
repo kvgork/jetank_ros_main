@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot simulation demo bring-up for the JeTank robot.
+r"""One-shot simulation demo bring-up for the JeTank robot.
 
 Brings up the WHOLE demo with no arguments — `ros2 launch jetank_ros_main
 sim_demo.launch.py` starts:
@@ -39,7 +39,6 @@ Move the arm interactively with MoveIt instead via::
 
 import os
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
 from launch.conditions import IfCondition
@@ -50,9 +49,6 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     """Generate the simulation demo launch description."""
-    pkg_main = get_package_share_directory('jetank_ros_main')
-    pkg_nav = get_package_share_directory('jetank_navigation')
-
     world = LaunchConfiguration('world')
     slam = LaunchConfiguration('slam')
     use_rviz = LaunchConfiguration('rviz')
