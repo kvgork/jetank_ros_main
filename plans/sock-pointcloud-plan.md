@@ -1,6 +1,7 @@
 # Plan — Sock 3D point-cloud blob (toward grasp poses)
 
-**Status:** Phase 0 done (empirical) · **Created:** 2026-06-07 · **Mode:** sim-first, sim + real
+**Status:** Phases 0–3 done + sim-verified · **Created:** 2026-06-07 · **Mode:** sim-first, sim + real
+**Progress (branch `feature/sim-disparity-source`):** P1 sim disparity/cloud restored (`ros_topics` input source) ✅ · P1b optical frames RPY(-90,0,-90) ✅ · P2 SegmentSocks action + stub ✅ · P3 real segmentation server — sim-verified `found=true`, centroid in base_link (x=0.83,z=0.02), 4923-pt blob ✅. **P4 (real detection-in-loop + ground-removal tuning) is BLOCKED: no `sock_sim.pt` model in the workspace.** P5 (real HW), P6 (grasp hooks) remain.
 **Goal:** From a detected sock, produce a clean 3D point-cloud *blob* (the points belonging to that
 sock, in a stable frame) that a later stage can turn into a grasp pose. Grasp-pose generation itself is
 **out of scope** here — this plan stops at "one PointCloud2 blob + centroid per sock".
