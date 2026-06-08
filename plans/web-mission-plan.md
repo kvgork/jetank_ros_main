@@ -1,6 +1,6 @@
 # Plan — Web map-click sock-fetch mission
 
-**Status:** plan / not started · **Created:** 2026-06-08 · **Mode:** sim-first, sim + real
+**Status:** plan / decisions locked · **Created:** 2026-06-08 · **Mode:** sim-first, sim + real
 **Goal:** From the web control page, click a point on the map → the robot drives there, searches for a
 sock, picks it up, and deposits it in a predefined area. Then reports back to the UI and is ready for
 the next click.
@@ -64,9 +64,11 @@ addition to the existing `web_control_node`.
 
 ## Phased implementation (sim-first, each phase independently testable)
 
-**M1 — Map-click → world goal (web).** UI click→world (pixel·resolution + origin), marker overlay,
-`POST /mission/goal`, `web_control_node` republishes `PoseStamped` on `/mission/goal`. *Accept:* clicking
-the map prints a correct world coord (verify against a known map feature) and a `PoseStamped` is published.
+**M1 — Map-click → world goal (web), two modes.** UI click→world (pixel·resolution + map origin), marker
+overlay. **Pick-site** click → `POST /mission/goal {x,y}`. A **"Set deposit area"** toggle → click →
+`POST /mission/deposit {x,y}` (distinct marker; `web_control_node` persists it to a param/file so it
+survives restarts). *Accept:* both clicks yield correct world coords (verify against a known map feature);
+pick-site publishes the mission goal; deposit click stores + redraws the deposit marker.
 
 **M2 — `mission_coordinator` + NAVIGATE.** Skeleton action `~/run_mission`; implement
 `NAVIGATE_TO_SITE` via `NavigateToPose`. Run with nav2 (mode:=nav2 + a saved `sock_arena` map). *Accept:*
@@ -79,8 +81,9 @@ detected; clean "not found" when none.
 **M4 — PICK.** Call `~/execute_sock_grasp` (the Phase-7 pipeline). *Accept:* on a found sock, the pick
 sequence runs and reports success/fail (subject to the Phase-7 grasp validation still in progress).
 
-**M5 — DEPOSIT.** `NavigateToPose` → `deposit_pose`; open gripper to release (+ optional place motion).
-*Accept:* base drives to the deposit area and the gripper opens.
+**M5 — DEPOSIT.** `NavigateToPose` → the **stored deposit pose** (set via the M1 deposit click; fail
+clearly if none set yet); open gripper to release (+ optional place motion). *Accept:* base drives to the
+deposit area and the gripper opens.
 
 **M6 — End-to-end + UI feedback.** Wire `/mission/status` → UI status line; full click→deposit run;
 `mission_coordinator` returns to idle for the next click. Add a `web_mission.launch.py` (nav2 + the
@@ -89,18 +92,23 @@ full fetch-and-deposit cycle in sim, status shown in the UI.
 
 ---
 
-## Key decisions / assumptions (confirm before M2)
-1. **Localization:** nav2 mode needs a **prebuilt map + AMCL** (or continue SLAM). Assume a saved
-   `sock_arena` map + AMCL; the web map-click is in that map frame. (If SLAM-only, the map drifts — pick AMCL.)
-2. **Deposit area:** a single fixed `deposit_pose` param (map frame). Need the coordinate for `sock_arena`
-   (and a marker on the UI map).
-3. **Search pattern:** rotate-in-place at the clicked point (simple) vs a small expanding sweep. Default
-   rotate-in-place + timeout.
-4. **Mission interface:** `RunMission` action (recommended, cancellable + feedback) vs a plain topic.
-5. **Pick coupling:** reuse `mobile_grasp_coordinator` as-is (it already does detect→approach→grasp). The
-   mission's SEARCH just ensures a sock is in view first; PICK delegates the rest.
-6. **Package home:** `mission_coordinator` in `jetank_manipulation`, or a new thin `jetank_mission` pkg
-   (cleaner separation). Default: new `jetank_mission` pkg.
+## Decisions (locked 2026-06-08)
+1. **Localization:** **AMCL + a saved `sock_arena` map** (`navigation_full mode:=nav2 map:=…`). Build the
+   map once via SLAM, save it; the web map-click + deposit are in that stable `map` frame.
+2. **Mission home:** a **new `jetank_mission` package** (ament_cmake+python or ament_python) — top-level
+   orchestration separated from manipulation. Depends on the nav2 / `jetank_manipulation` / detection
+   interfaces only.
+3. **Mission interface:** **`RunMission` action** (`jetank_mission/action/RunMission`) —
+   goal `{PoseStamped site, float32 search_timeout}`, result `{bool success, string outcome}`,
+   feedback `{string state}`. `web_control_node` is the action client (cancellable; streams state to UI).
+4. **Deposit area = a SECOND clicked point (two-click UI).** The web map supports two modes: a normal
+   click = **pick site** (runs the mission), and a **"Set deposit area"** toggle whose click stores the
+   **deposit pose** (persisted to a param/file, drawn as a distinct marker on the map). The mission's
+   DEPOSIT step navigates to the stored deposit pose. (Adds a UI mode + a `POST /mission/deposit` route +
+   persistence; folded into M1/M5.)
+5. **Search pattern:** rotate-in-place at the site + timeout (v1); expanding sweep deferred.
+6. **Pick coupling:** reuse `mobile_grasp_coordinator` (`~/execute_sock_grasp`) as-is; SEARCH only ensures
+   a sock is in view before delegating PICK.
 
 ## Risks
 - **Localization accuracy** drives both navigation-to-site and the grasp's open-loop pose (odom drift over
