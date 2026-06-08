@@ -1,7 +1,7 @@
 # Plan — Sock 3D point-cloud blob (toward grasp poses)
 
-**Status:** Phases 0–3 done + sim-verified · **Created:** 2026-06-07 · **Mode:** sim-first, sim + real
-**Progress (branch `feature/sim-disparity-source`):** P1 sim disparity/cloud restored (`ros_topics` input source) ✅ · P1b optical frames RPY(-90,0,-90) ✅ · P2 SegmentSocks action + stub ✅ · P3 real segmentation server — sim-verified `found=true`, centroid in base_link (x=0.83,z=0.02), 4923-pt blob ✅. **P4 (real detection-in-loop + ground-removal tuning) is BLOCKED: no `sock_sim.pt` model in the workspace.** P5 (real HW), P6 (grasp hooks) remain.
+**Status:** Phases 0–4 + 6 done + sim-verified end-to-end · **Created:** 2026-06-07 · **Mode:** sim-first
+**Progress (branch `feature/sim-disparity-source`):** P1 sim disparity/cloud restored (`ros_topics` input source) ✅ · P1b optical frames RPY(-90,0,-90) ✅ · P2 SegmentSocks action + stub ✅ · P3 real segmentation server (sim `found=true`, centroid base_link) ✅ · **P4 full detection-in-loop with `sock_sim.pt`** — real sock detected (score 0.79), `remove_ground=true` → 5–8 cm sock blob, centroid base_link x=1.03 z=-0.02 ✅ · **P6 grasp-pose module** (`grasp_pose_node`: `/segment_socks` → top-down grasp PoseStamped, togglable PCA yaw) ✅. **Full chain verified:** camera→detect→3D blob→grasp pose `x=1.03 yaw=29.8° score=0.79`. Model: `/home/koen/models/sock_sim.pt` (run `detect_sim model_path_sim:=…`). **Remaining: P5 (real hardware) only.**
 **Goal:** From a detected sock, produce a clean 3D point-cloud *blob* (the points belonging to that
 sock, in a stable frame) that a later stage can turn into a grasp pose. Grasp-pose generation itself is
 **out of scope** here — this plan stops at "one PointCloud2 blob + centroid per sock".
