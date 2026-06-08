@@ -244,3 +244,10 @@ standoff; camera-inspection is an **optional** module, not on the critical path.
 pose-grasp plans+executes the arm to a reachable floor pose + actuates gripper (needs `moveit_sim`
 move_group + gazebo controllers); P7c coordinator sequences end-to-end. Full physical pick success in
 Gazebo is best-effort (gripper-sock contact physics); the gate is "each module behaves correctly".
+
+**P7 status (2026-06-08):** all 3 modules **built + unit-tested** (grasp_server pose path; base_approach
++ 10 control tests; coordinator state machine, graceful-fail verified). **P7a base_approach
+SIM-VERIFIED** (`success=true`, base stops at standoff; fixed an arrival-tolerance bug). **P7b
+(move_group pose-grasp execution) + P7c (full coordinator integration) NOT yet sim-validated** — needs
+the heavy bring-up (gazebo + moveit_sim move_group + perception + detector + base + coordinator) and
+carries the 4-DOF-IK-to-floor-pose + Gazebo grasp-physics risks. Next step.
