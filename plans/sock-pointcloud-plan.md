@@ -253,3 +253,17 @@ the heavy bring-up (gazebo + moveit_sim move_group + perception + detector + bas
 carries the 4-DOF-IK-to-floor-pose + Gazebo grasp-physics risks. Next step.
 **P7 integration run (2026-06-08):** SEGMENT + REACH_CHECK + **APPROACH sim-verified** (base drove 1.03m up to the sock, 'Arrived within standoff 0.18m'; fixed a TF-stamp bug — the odom snapshot must be looked up at latest time, not the frozen detection stamp). **New gap at RE_SEGMENT:** after closing to ~0.2 m the detector loses the sock — the floor sock drops below the forward-looking arm-mounted camera's FOV. Needs a **camera-tilt-down inspection step** before RE_SEGMENT (the 'camera can move down' behaviour). GRASP (move_group) not yet reached. The 8-node bring-up is also flaky in this env (intermittent startup termination).
 
+**P7 final (2026-06-08):** coordinator runs the WHOLE sequence correctly in sim — SEGMENT → **store grasp pose in odom** (1.029,-0.062,0.006) → REACH_CHECK → **APPROACH** (arrived, standoff 0.21m) → **GRASP: recovered pose in base_link (0.209,-0.000,-0.024)** — the remember-in-odom→retrieve open-loop tracking is VERIFIED. The ONLY unvalidated piece is the final `grasp_server`→`move_group` arm motion (4-DOF IK to the floor pose + Gazebo grasp physics): the 8–9-node headless bring-up is flaky in this env (intermittent startup termination), so validate it INTERACTIVELY:
+```
+ros2 launch jetank_ros_main gazebo_sim.launch.py world:=sock_arena   # +controllers
+ros2 launch jetank_moveit_config moveit_sim.launch.py headless:=false use_rviz:=true  # move_group +RViz
+ros2 launch jetank_ros_main stereo_camera_sim.launch.py             # disparity/cloud
+ros2 launch jetank_detection detect_sim.launch.py model_path_sim:=/home/koen/models/sock_sim.pt confidence:=0.3
+ros2 lifecycle set /sock_detector configure && ros2 lifecycle set /sock_detector activate
+ros2 run jetank_perception sock_segmentation_server --ros-args -p use_sim_time:=true
+ros2 run jetank_manipulation grasp_server --ros-args -p use_sim_time:=true
+ros2 run jetank_manipulation base_approach_node --ros-args -p use_sim_time:=true
+ros2 run jetank_manipulation mobile_grasp_coordinator --ros-args -p use_sim_time:=true
+ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
+```
+Watch the arm plan/move in RViz; if IK fails on the floor pose, tune the grasp z / orientation tolerance / `approach_height` (4-DOF reach is tight).
