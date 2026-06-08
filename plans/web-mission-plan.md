@@ -1,6 +1,6 @@
 # Plan — Web map-click sock-fetch mission
 
-**Status:** plan / decisions locked · **Created:** 2026-06-08 · **Mode:** sim-first, sim + real
+**Status:** M1–M6 IMPLEMENTED (component-validated); full-mission e2e = interactive · **Created:** 2026-06-08 · **Mode:** sim-first, sim + real
 **Goal:** From the web control page, click a point on the map → the robot drives there, searches for a
 sock, picks it up, and deposits it in a predefined area. Then reports back to the UI and is ready for
 the next click.
@@ -124,3 +124,13 @@ full fetch-and-deposit cycle in sim, status shown in the UI.
 ## Out of scope (v1)
 Multi-sock collection, dynamic obstacle replanning beyond nav2 defaults, gentle placement, search patrol
 across the whole map, real-hardware bring-up (mirrors `sock-pointcloud-plan.md` Phase 5).
+
+---
+
+## Implementation status (2026-06-08)
+- **M1** ✅ web map-click → `/mission/goal` + two-click deposit (persisted), live-verified.
+- **M2–M5** ✅ new **`jetank_mission`** pkg + `RunMission` action + `mission_coordinator` FSM (NAVIGATE→SEARCH→PICK→DEPOSIT→DONE), cancellable, latched `/mission/status`; 31 FSM pytests; graceful-fail verified.
+- **M6** ✅ `web_control_node` RunMission client + `/mission/status` poll + `/mission/cancel` + UI status/cancel; `web_mission.launch.py` (one-command full stack; nav2 `use_sim_time` gates hardware off to avoid double-start). 91 web pytests.
+- **PICK** uses `grasp_mode:=preset` (Cartesian floor grasp infeasible on the 4-DOF arm — see sock-pointcloud-plan §8).
+- **Remaining = interactive full-mission validation:** needs a **saved `sock_arena` map** (build via SLAM + save) for nav2 mode, then `ros2 launch jetank_mission web_mission.launch.py map:=<map.yaml>`, set a deposit point, click a pick site, watch the FSM. The headless 10+-node stack is flaky here; every component is individually validated.
+- **`jetank_mission` is a new LOCAL git repo** (branch feature/sim-disparity-source) — set an `origin` (kvgork/jetank_mission) + add to `jetank.repos` to spin it out like the other siblings.
