@@ -53,14 +53,17 @@ def generate_launch_description():
     # start_gazebo:=false — gazebo_sim above already owns the simulation; without
     # this, moveit_sim would launch a SECOND gazebo (it defaults start_gazebo:=true).
     # move_group attaches to the already-running gazebo's ros2_control instead.
-    move_group = TimerAction(period=6.0, actions=[
+    # Generous stagger: gazebo must fully spawn the robot + bring up gz_ros2_control's
+    # controller_manager + load the controllers BEFORE move_group/perception/etc. pile
+    # on, or the spawn races and controller_manager never comes up under load.
+    move_group = TimerAction(period=18.0, actions=[
         inc(moveit, "moveit_sim.launch.py",
             headless="false", use_rviz=use_rviz, start_gazebo="false"),
     ])
-    perception = TimerAction(period=10.0, actions=[
+    perception = TimerAction(period=26.0, actions=[
         inc(ros_main, "stereo_camera_sim.launch.py"),
     ])
-    detector = TimerAction(period=12.0, actions=[
+    detector = TimerAction(period=30.0, actions=[
         inc(detection, "detect_sim.launch.py",
             model_path_sim=model_path_sim, continuous="true", confidence=confidence),
     ])
@@ -74,12 +77,12 @@ def generate_launch_description():
                     name="base_approach_node", parameters=[sim_time], output="screen")
     coordinator = Node(package="jetank_manipulation", executable="mobile_grasp_coordinator",
                        name="mobile_grasp_coordinator", parameters=[sim_time], output="screen")
-    pipeline = TimerAction(period=14.0, actions=[seg, grasp, approach, coordinator])
+    pipeline = TimerAction(period=34.0, actions=[seg, grasp, approach, coordinator])
 
     # --- auto configure + activate the sock_detector lifecycle node ---
-    lc_configure = TimerAction(period=18.0, actions=[ExecuteProcess(
+    lc_configure = TimerAction(period=40.0, actions=[ExecuteProcess(
         cmd=["ros2", "lifecycle", "set", "/sock_detector", "configure"], output="screen")])
-    lc_activate = TimerAction(period=22.0, actions=[ExecuteProcess(
+    lc_activate = TimerAction(period=46.0, actions=[ExecuteProcess(
         cmd=["ros2", "lifecycle", "set", "/sock_detector", "activate"], output="screen")])
 
     return LaunchDescription([
