@@ -48,3 +48,9 @@ repositories:
     type: git
     url: git@github.com:kvgork/jetank_web_control.git
     version: main
+  # NOTE: GitHub repo name is 'jetank_misson' (typo); local package + dir are
+  # 'jetank_mission'. Rename the repo to jetank_mission and fix this url when convenient.
+  jetank_mission:
+    type: git
+    url: git@github.com:kvgork/jetank_misson.git
+    version: main
