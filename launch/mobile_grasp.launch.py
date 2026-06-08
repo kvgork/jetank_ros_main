@@ -50,8 +50,12 @@ def generate_launch_description():
 
     # --- core stack (staggered: gz first, then move_group, then perception) ---
     gazebo = inc(ros_main, "gazebo_sim.launch.py", world=world)
+    # start_gazebo:=false — gazebo_sim above already owns the simulation; without
+    # this, moveit_sim would launch a SECOND gazebo (it defaults start_gazebo:=true).
+    # move_group attaches to the already-running gazebo's ros2_control instead.
     move_group = TimerAction(period=6.0, actions=[
-        inc(moveit, "moveit_sim.launch.py", headless="false", use_rviz=use_rviz),
+        inc(moveit, "moveit_sim.launch.py",
+            headless="false", use_rviz=use_rviz, start_gazebo="false"),
     ])
     perception = TimerAction(period=10.0, actions=[
         inc(ros_main, "stereo_camera_sim.launch.py"),
