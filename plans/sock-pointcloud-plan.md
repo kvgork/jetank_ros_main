@@ -213,3 +213,34 @@ from the centroid.
    origin); array form deferred.
 4. **Debug `/socks/points` topic:** param-gated — **on in sim**, **off on real** until per-frame cost is
    profiled on the Orin Nano.
+
+## 8. Phase 7 — Mobile-manip grasp EXECUTION (modular)
+
+**Goal:** actually pick the sock — drive the base into reach, then execute the computed grasp pose with
+the arm + gripper. **Scope: full** (base approach + pose-targeted arm grasp + gripper + retreat).
+
+**Feasibility (corrected 2026-06-08):** floor grasp **IS** reachable with `S2≈110°(1.92) / S3≈-15°`
+(the old `grasp_server` "can't reach floor" comment was conservative). Arm is **4-DOF** (S1/S2/S3/S5,
+chain base_link→S5_link, EE `gripper_ee`/S5_link) → orientation is constrained; treat the grasp as
+**position + yaw** (top-down), let MoveIt IK solve. Reach ~0.25 m → base approach required. The camera
+sits on its own joint and can tilt down to inspect, but too close degrades stereo — keep a segmentation
+standoff; camera-inspection is an **optional** module, not on the critical path.
+
+**Modular components (each independently runnable, composed via action interfaces):**
+1. **`grasp_server` upgrade** (jetank_manipulation) — extend `GraspObject.action` with an optional
+   `geometry_msgs/PoseStamped target_pose` (+ approach offset). Empty frame ⇒ legacy preset (back-compat);
+   set ⇒ pose-targeted grasp via a `/move_action` MoveGroup goal (pre-grasp above → reach pose → close
+   gripper → retreat), position+orientation constraints on `gripper_ee`. Floor pose solved by IK.
+2. **`base_approach_node`** (NEW, standalone) — `ApproachTarget` action: goal {PointStamped target,
+   float32 standoff}, drives `/diff_drive_controller/cmd_vel` (TwistStamped) with a proportional
+   rotate-to-face + drive-to-standoff servo; feedback = distance; succeeds within standoff. Reusable for
+   any "drive up to a point" need.
+3. **`mobile_grasp_coordinator`** (NEW, thin state machine) — orchestrates only:
+   SEGMENT (`/segment_socks`) → REACH-CHECK (centroid in arm envelope?) → if not APPROACH
+   (`ApproachTarget`) → RE-SEGMENT (sock now near) → GRASP (`GraspObject` with the pose) → DONE/retreat.
+   Trigger via a service/action; cancellable.
+
+**Sim validation (incremental):** P7a base_approach drives base to standoff + stops; P7b grasp_server
+pose-grasp plans+executes the arm to a reachable floor pose + actuates gripper (needs `moveit_sim`
+move_group + gazebo controllers); P7c coordinator sequences end-to-end. Full physical pick success in
+Gazebo is best-effort (gripper-sock contact physics); the gate is "each module behaves correctly".
