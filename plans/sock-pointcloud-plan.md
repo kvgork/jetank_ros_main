@@ -251,3 +251,5 @@ SIM-VERIFIED** (`success=true`, base stops at standoff; fixed an arrival-toleran
 (move_group pose-grasp execution) + P7c (full coordinator integration) NOT yet sim-validated** — needs
 the heavy bring-up (gazebo + moveit_sim move_group + perception + detector + base + coordinator) and
 carries the 4-DOF-IK-to-floor-pose + Gazebo grasp-physics risks. Next step.
+**P7 integration run (2026-06-08):** SEGMENT + REACH_CHECK + **APPROACH sim-verified** (base drove 1.03m up to the sock, 'Arrived within standoff 0.18m'; fixed a TF-stamp bug — the odom snapshot must be looked up at latest time, not the frozen detection stamp). **New gap at RE_SEGMENT:** after closing to ~0.2 m the detector loses the sock — the floor sock drops below the forward-looking arm-mounted camera's FOV. Needs a **camera-tilt-down inspection step** before RE_SEGMENT (the 'camera can move down' behaviour). GRASP (move_group) not yet reached. The 8-node bring-up is also flaky in this env (intermittent startup termination).
+
