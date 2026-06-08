@@ -267,3 +267,5 @@ ros2 run jetank_manipulation mobile_grasp_coordinator --ros-args -p use_sim_time
 ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
 ```
 Watch the arm plan/move in RViz; if IK fails on the floor pose, tune the grasp z / orientation tolerance / `approach_height` (4-DOF reach is tight).
+
+**P7 grasp CONFIRMED (2026-06-08):** the preset arm grasp executes fully in sim (grasp_pre→open→grasp_reach→close[reached_goal]→retreat→home, all move_group SUCCESS). A Cartesian pose grasp at floor level is INFEASIBLE on the 4-DOF arm (wrist self-collides with the arm-mounted camera → OMPL can't sample IK), so `mobile_grasp_coordinator` PICK uses `grasp_mode:=preset` (the RViz-tuned grasp_reach); the base APPROACH centres the sock at the reach standoff. Full single-run chain is gated only by flaky detector lifecycle-startup timing in the headless launch.
