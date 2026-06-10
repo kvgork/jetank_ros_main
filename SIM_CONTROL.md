@@ -10,13 +10,39 @@ All commands run inside the pixi env (`pixi shell`, or prefix with `pixi run`).
 ros2 launch jetank_ros_main sim_demo.launch.py arm:=true web:=true
 
 # Args (all optional):
-#   world := empty | simple_test | obstacle_course | sock_arena   (default obstacle_course)
+#   world := empty | simple_test | obstacle_course | sock_arena | house   (default house)
 #   slam  := true | false   (default true)   rviz := true | false   (default true)
 #   arm   := true | false   (default false)  web  := true | false   (default false)
 ```
 
 > GUI windows (Gazebo, RViz) open **behind** other windows — alt-tab to them.
 > RViz uses the **Orbit** view (LMB orbit, scroll zoom, Shift+LMB pan).
+
+### Fetch-sock mission (one command)
+
+The full **navigate → search → pick → carry → deposit** loop, driven from the browser:
+
+```bash
+ros2 launch jetank_mission web_mission.launch.py \
+  map:=$HOME/maps/sock_arena.yaml gui:=true use_rviz:=true
+# Args: world (sock_arena) · map (~/maps/sock_arena.yaml) · model_path_sim
+#       · gui (false) · use_rviz (false)   — headless by default, browser-driven
+```
+
+Open **http://localhost:8080**, set a deposit area (once), then *Fetch sock* mode → click the
+pick site. FSM: `NAVIGATE_TO_SITE → SEARCH → PICK → NAVIGATE_TO_DEPOSIT → DEPOSIT`.
+Full architecture: `jetank_mission/docs/fetch-sock-mission.md`.
+
+### Pick stack only (drive a grasp interactively)
+
+```bash
+ros2 launch jetank_ros_main mobile_grasp.launch.py gui:=true use_rviz:=true
+ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
+```
+
+> `gazebo_sim.launch.py` / `mobile_grasp.launch.py` take `gui:=true|false` (Gazebo GUI vs
+> server-only) and `start_arm_active:=true|false`. `mobile_grasp` passes
+> `start_arm_active:=true` so MoveIt's trajectories aren't rejected by an inactive `arm_controller`.
 
 ## Drive the base
 
