@@ -36,6 +36,7 @@ def generate_launch_description():
     model_path_sim = LaunchConfiguration("model_path_sim")
     confidence = LaunchConfiguration("confidence")
     use_rviz = LaunchConfiguration("use_rviz")
+    gui = LaunchConfiguration("gui")
 
     ros_main = FindPackageShare("jetank_ros_main")
     moveit = FindPackageShare("jetank_moveit_config")
@@ -49,7 +50,13 @@ def generate_launch_description():
         )
 
     # --- core stack (staggered: gz first, then move_group, then perception) ---
-    gazebo = inc(ros_main, "gazebo_sim.launch.py", world=world)
+    # start_arm_active:=true — this stack exists to drive the arm via MoveIt. The
+    # gz_ros2_control arm_controller defaults to --inactive (gazebo_sim ->
+    # gazebo_headless), which makes move_group's FollowJointTrajectory goals get
+    # rejected ("Can't accept new action goals. Controller is not running.") so
+    # every grasp fails with CONTROL_FAILED. Bring it up active here.
+    gazebo = inc(ros_main, "gazebo_sim.launch.py", world=world, gui=gui,
+                 start_arm_active="true")
     # start_gazebo:=false — gazebo_sim above already owns the simulation; without
     # this, moveit_sim would launch a SECOND gazebo (it defaults start_gazebo:=true).
     # move_group attaches to the already-running gazebo's ros2_control instead.
@@ -90,5 +97,7 @@ def generate_launch_description():
         DeclareLaunchArgument("model_path_sim", default_value="/home/koen/models/sock_sim.pt"),
         DeclareLaunchArgument("confidence", default_value="0.3"),
         DeclareLaunchArgument("use_rviz", default_value="true"),
+        DeclareLaunchArgument("gui", default_value="true",
+                              description="Gazebo GUI client (false => server-only)."),
         gazebo, move_group, perception, detector, pipeline, lc_configure, lc_activate,
     ])
