@@ -27,6 +27,14 @@ def generate_launch_description():
         description='Start arm_controller active instead of inactive'
     )
 
+    # gui:=false => server-only Gazebo (lighter, no GUI window); web/headless runs.
+    gui = LaunchConfiguration('gui')
+    declare_gui_arg = DeclareLaunchArgument(
+        'gui',
+        default_value='true',
+        description='Run the Gazebo GUI client (false => server-only).'
+    )
+
     # Map world names to file paths
     # Note: Python dictionary used for world selection
     world_files = {
@@ -61,6 +69,7 @@ def generate_launch_description():
         launch_arguments={
             'world': os.path.join(pkg_jetank_simulation, 'worlds', 'empty_fortress.sdf'),
             'start_arm_active': start_arm_active,
+            'gui': gui,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'empty')
     )
@@ -74,6 +83,7 @@ def generate_launch_description():
         launch_arguments={
             'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
             'start_arm_active': start_arm_active,
+            'gui': gui,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'simple_test')
     )
@@ -87,6 +97,7 @@ def generate_launch_description():
         launch_arguments={
             'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
             'start_arm_active': start_arm_active,
+            'gui': gui,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'obstacle_course')
     )
@@ -100,6 +111,7 @@ def generate_launch_description():
         launch_arguments={
             'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
             'start_arm_active': start_arm_active,
+            'gui': gui,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'sock_arena')
     )
@@ -113,6 +125,7 @@ def generate_launch_description():
         launch_arguments={
             'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
             'start_arm_active': start_arm_active,
+            'gui': gui,
         }.items(),
         condition=LaunchConfigurationEquals('world', 'house')
     )
@@ -123,6 +136,7 @@ def generate_launch_description():
     # Declare arguments
     ld.add_action(declare_world_arg)
     ld.add_action(declare_start_arm_active_arg)
+    ld.add_action(declare_gui_arg)
 
     # Add conditional gazebo launches
     ld.add_action(gazebo_empty)

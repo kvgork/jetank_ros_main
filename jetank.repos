@@ -48,3 +48,7 @@ repositories:
     type: git
     url: git@github.com:kvgork/jetank_web_control.git
     version: main
+  jetank_mission:
+    type: git
+    url: git@github.com:kvgork/jetank_mission.git
+    version: main

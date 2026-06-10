@@ -37,7 +37,8 @@
 
 ## ✨ Highlights
 
-- 🧩 **9-package modular workspace** — base, description, perception, navigation, manipulation, detection, simulation, web control, and an integration seed package.
+- 🧩 **10-package modular workspace** — base, description, perception, navigation, manipulation, detection, simulation, web control, a fetch-sock mission layer, and an integration seed package.
+- 🧦 **End-to-end fetch-sock mission** — click a point on the web map and the robot drives there, finds a sock, picks it up, carries it to a deposit zone and drops it (`NAVIGATE_TO_SITE → SEARCH → PICK → NAVIGATE_TO_DEPOSIT → DEPOSIT`). Works end-to-end in sim.
 - 🚀 **One-clone bootstrap** — clone the seed repo, run `install.sh`, and the whole multi-repo workspace + environment is provisioned for you.
 - 🖥️ **No system ROS 2 required** — the entire stack ships inside a [pixi](https://prefix.dev/) / [RoboStack](https://robostack.github.io/) conda environment. Works on `aarch64` (robot) and `x86_64` (dev laptop).
 - 🕹️ **One-command simulation** — `sim_demo.launch.py` boots Gazebo + RViz + SLAM (and optionally the arm + web UI) attached to a single sim.
@@ -45,6 +46,7 @@
 - 🦾 **MoveIt 2 arm** — 4-DOF arm with motion planning and an open-loop preset-grasp action server.
 - 👀 **Stereo perception** — IMX219-83 stereo camera with GPU/SGBM disparity and a YOLO11n sock detector (lifecycle action server).
 - 📱 **Browser remote control** — MJPEG video + WebSocket joystick/keyboard/gamepad, served straight off the Jetson, no client install.
+- 🎯 **One-command mission stack** — `jetank_mission web_mission.launch.py` boots the whole fetch loop (nav + perception + grasp + web UI) attached to one sim, driven from the browser.
 
 ---
 
@@ -93,13 +95,19 @@ flowchart TB
         SIM["jetank_simulation<br/>Ignition Gazebo worlds"]
     end
 
+    subgraph mission["Mission"]
+        MISSION["jetank_mission<br/>mission_coordinator FSM<br/>RunMission action"]
+    end
+
     MAIN["jetank_ros_main<br/>(integration seed: launch, worlds, configs, install.sh)"]
 
-    MAIN --- desc & base & sense & nav & arm & io
+    MAIN --- desc & base & sense & nav & arm & io & mission
     URDF --> MOTOR & MOVEIT & SIM
     PERC --> DET --> GRASP
     NAV --> MOTOR
     MOVEIT --> GRASP
+    WEB --> MISSION
+    MISSION --> NAV & DET & GRASP
 ```
 
 | Package | Build | Role |
@@ -114,6 +122,7 @@ flowchart TB
 | [`jetank_manipulation`](https://github.com/kvgork/jetank_manipulation) | ament_cmake | Open-loop preset `GraspObject` action server |
 | [`jetank_simulation`](https://github.com/kvgork/jetank_simulation) | ament_cmake | Ignition Gazebo Fortress (ros-gz) worlds + launch |
 | [`jetank_web_control`](https://github.com/kvgork/jetank_web_control) | ament_python | Browser remote-control node (MJPEG + WebSocket) |
+| [`jetank_mission`](https://github.com/kvgork/jetank_mission) | ament_cmake | Fetch-sock mission layer — `mission_coordinator` FSM, `RunMission` action, `web_mission.launch.py` one-command stack |
 
 ---
 
@@ -179,6 +188,42 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 | `sock_arena` | room + furniture + socks | detection / manipulation |
 | `house` | 3-room house + doorways + furniture | SLAM + Nav2 *(default)* |
 
+### 🧦 Fetch-sock mission
+
+The full autonomous loop — **navigate → search → pick → carry → deposit** — comes up in one command from the `jetank_mission` package and is driven entirely from the browser:
+
+```bash
+ros2 launch jetank_mission web_mission.launch.py \
+  map:=$HOME/maps/sock_arena.yaml gui:=true use_rviz:=true
+```
+
+Then open **http://localhost:8080**, set a deposit area once (deposit mode → click the map), switch to *Fetch sock* mode and click the pick site. The `mission_coordinator` runs a five-state FSM:
+
+```
+NAVIGATE_TO_SITE → SEARCH → PICK → NAVIGATE_TO_DEPOSIT → DEPOSIT
+```
+
+SEARCH rotates in place watching the YOLO detector; PICK delegates to the `mobile_grasp_coordinator` (3D-segment → base approach → MoveIt preset grasp). The live status line cycles the FSM state through to `DONE`.
+
+| Arg | Default | Effect |
+|---|---|---|
+| `map` | `~/maps/sock_arena.yaml` | Nav2 map yaml (AMCL + map_server) |
+| `world` | `sock_arena` | Gazebo world |
+| `model_path_sim` | `~/models/sock_sim.pt` | YOLO sim model |
+| `gui` | `false` | Gazebo GUI client (false ⇒ server-only) |
+| `use_rviz` | `false` | MoveIt RViz (Nav2's RViz stays off to avoid a 2nd window) |
+
+> Headless by default (browser-driven). The stack composes `mobile_grasp.launch.py` + Nav2 (`mode:=nav2 use_sim_time:=true`) + `mission_coordinator` + web control, staggered with timers (~60 s to fully come up). See **[`jetank_mission/docs/fetch-sock-mission.md`](https://github.com/kvgork/jetank_mission/blob/main/docs/fetch-sock-mission.md)** for the full architecture.
+
+The pick stack alone (no Nav2 / mission, for driving a grasp interactively) is `mobile_grasp.launch.py` — it starts Gazebo + `move_group` + perception + the grasp pipeline and passes `start_arm_active:=true` so MoveIt's trajectories aren't rejected:
+
+```bash
+ros2 launch jetank_ros_main mobile_grasp.launch.py gui:=true use_rviz:=true
+ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
+```
+
+> `gazebo_sim.launch.py` and `mobile_grasp.launch.py` both take `gui:=true|false` (Gazebo GUI vs server-only) and `start_arm_active:=true|false` (bring the `arm_controller` up active so MoveIt can drive the arm — needed whenever `move_group` runs).
+
 ---
 
 ## 🦿 Run it on the robot
@@ -197,6 +242,7 @@ pixi run urdf                       # robot model in RViz
 | Arm (MoveIt 2) | `ros2 launch jetank_moveit_config moveit_bringup.launch.py` |
 | Grasp action | `ros2 launch jetank_manipulation grasp.launch.py` |
 | Sock detection | `ros2 launch jetank_detection ...` (`DetectSocks` action) |
+| Fetch-sock mission | `ros2 launch jetank_mission web_mission.launch.py map:=<path>` (`RunMission` action) |
 | Web control | served on `:8080` — open it from any device on the LAN |
 
 ---
@@ -220,6 +266,7 @@ pixi run urdf                       # robot model in RViz
 - [x] MoveIt 2 arm config + preset grasp action
 - [x] YOLO11n sock detector (PyTorch stage)
 - [x] Browser remote control (video + joystick)
+- [x] End-to-end fetch-sock mission in sim (web map-click → nav → search → pick → deposit)
 - [ ] TensorRT-accelerated detection on Jetson
 - [ ] Closed-loop stereo-guided grasping
 - [ ] End-to-end autonomous sock collection on real hardware
@@ -241,7 +288,8 @@ Each package documents its own ROS 2 interface (nodes, topics, actions, services
 | `jetank_moveit_config` | [README](https://github.com/kvgork/jetank_moveit_config#ros-2-api) — `move_group`, `follow_joint_trajectory` / `gripper_cmd` actions |
 | `jetank_manipulation` | [README](https://github.com/kvgork/jetank_manipulation#ros-2-api) — `grasp_server`, `GraspObject` action |
 | `jetank_simulation` | [README](https://github.com/kvgork/jetank_simulation#ros-2-api) — `ros_gz_bridge` topics, controllers, worlds |
-| `jetank_web_control` | [README](https://github.com/kvgork/jetank_web_control#ros-2-api) — `web_control_node` / `cmd_vel_bridge`, `NavigateToPose` + `GraspObject` clients |
+| `jetank_web_control` | [README](https://github.com/kvgork/jetank_web_control#ros-2-api) — `web_control_node` / `cmd_vel_bridge`, `NavigateToPose` + `GraspObject` + `RunMission` clients |
+| `jetank_mission` | [README](https://github.com/kvgork/jetank_mission#ros-2-api) — `mission_coordinator` FSM, `RunMission` action, `web_mission.launch.py` |
 | `jetank_description` | [README](https://github.com/kvgork/jetank_description#ros-2-api) — URDF/xacro model + in-model sensor topics (no runtime nodes) |
 
 This seed package itself runs only one helper node:
