@@ -19,6 +19,17 @@ Launch arguments:
   enable_moveit:      Enable MoveIt2 arm control (default: false)
   navigation_mode:    'slam' or 'nav2' (default: 'slam')
   map_file:           Map YAML for nav2 mode (default: '')
+  hardware:           ros2_control backend for MoveIt: 'mock' (no motors) or
+                      'serial' (real JetankSerial servos). Default 'mock'
+                      preserves existing callers. Passed through to
+                      moveit_bringup.launch.py unchanged.
+  left_frame_id:      Left camera optical frame id, forwarded to
+                      stereo_camera.launch.py's left_frame_id arg (overrides the
+                      non-optical *_link default in stereo_camera_config.yaml so
+                      disparity reprojection is z-forward). Default
+                      'camera_left_optical_frame'.
+  right_frame_id:     Right camera optical frame id. Default
+                      'camera_right_optical_frame'.
 
 Usage:
   # Full system (hardware) with web control:
@@ -31,12 +42,18 @@ Usage:
   ros2 launch jetank_ros_main unified.launch.py web_port:=9090
 
   # Base mobility only (no navigation/arm):
-  ros2 launch jetank_ros_main unified.launch.py \\
+  ros2 launch jetank_ros_main unified.launch.py \
     enable_navigation:=false enable_moveit:=false
 
   # Navigation with existing map:
-  ros2 launch jetank_ros_main unified.launch.py \\
+  ros2 launch jetank_ros_main unified.launch.py \
     navigation_mode:=nav2 map_file:=/path/to/map.yaml
+
+  # Hardware mission (real servos, optical frame ids):
+  ros2 launch jetank_ros_main unified.launch.py \
+    hardware:=serial \
+    left_frame_id:=camera_left_optical_frame \
+    right_frame_id:=camera_right_optical_frame
 """
 
 import os
@@ -74,6 +91,10 @@ def generate_launch_description():
     enable_moveit = LaunchConfiguration('enable_moveit')
     navigation_mode = LaunchConfiguration('navigation_mode')
     map_file = LaunchConfiguration('map_file')
+    hardware = LaunchConfiguration('hardware')
+    left_frame_id = LaunchConfiguration('left_frame_id')
+    right_frame_id = LaunchConfiguration('right_frame_id')
+
     declare_use_sim_time = DeclareLaunchArgument(
         'use_sim_time',
         default_value='false',
@@ -115,6 +136,43 @@ def generate_launch_description():
         'map_file',
         default_value='',
         description='Full path to map YAML file (required for nav2 mode)'
+    )
+
+    declare_hardware = DeclareLaunchArgument(
+        'hardware',
+        default_value='mock',
+        choices=['mock', 'serial'],
+        description=(
+            'ros2_control backend for MoveIt2: '
+            'mock = software-only (arm reports success, no motors move); '
+            'serial = real JetankSerialHardware servos (requires /dev/ttyTHS1).'
+        )
+    )
+
+    # stereo_camera.launch.py has no launch args for frame_ids — they come from
+    # stereo_camera_config.yaml (frames.left_frame_id / frames.right_frame_id).
+    # We pass them as direct parameter overrides via launch_arguments using the
+    # dotted YAML key syntax that stereo_camera_node declares with
+    # declare_parameter("frames.left_frame_id", ...).
+    declare_left_frame_id = DeclareLaunchArgument(
+        'left_frame_id',
+        default_value='camera_left_optical_frame',
+        description=(
+            'Left camera optical frame id (overrides frames.left_frame_id in '
+            'stereo_camera_config.yaml). Used by disparity reprojection; must '
+            'match the URDF optical-frame name. Real config default is '
+            'camera_left_link; sim / optical correct value is '
+            'camera_left_optical_frame.'
+        )
+    )
+
+    declare_right_frame_id = DeclareLaunchArgument(
+        'right_frame_id',
+        default_value='camera_right_optical_frame',
+        description=(
+            'Right camera optical frame id (overrides frames.right_frame_id in '
+            'stereo_camera_config.yaml). Same usage as left_frame_id.'
+        )
     )
 
     # ============================================================================
@@ -171,14 +229,18 @@ def generate_launch_description():
         )
     )
 
-    # Stereo camera (perception pipeline)
+    # Stereo camera (perception pipeline). left/right_frame_id forward to
+    # stereo_camera.launch.py's frame args (default the z-forward optical frames),
+    # so disparity/pointcloud reprojection matches the URDF geometry on hardware.
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_perception, 'launch', 'stereo_camera.launch.py')
         ),
         launch_arguments={
             'namespace': 'stereo_camera',
-            'publish_camera_transforms': 'false'  # TF handled by URDF
+            'publish_camera_transforms': 'false',  # TF handled by URDF
+            'left_frame_id': left_frame_id,
+            'right_frame_id': right_frame_id,
         }.items()
     )
 
@@ -197,6 +259,7 @@ def generate_launch_description():
         )
     )
 
+
     # ============================================================================
     # LAYER 3: MOVEIT2 ARM CONTROL (Conditional)
     # ============================================================================
@@ -204,6 +267,10 @@ def generate_launch_description():
     # so MoveIt remains self-contained. We just IncludeLaunchDescription with a
     # condition; the configs / move_group / spawners are only parsed and
     # spawned when enable_moveit:=true.
+    # The 'hardware' arg is passed through so moveit_bringup selects the correct
+    # ros2_control backend baked into the robot description XACRO:
+    #   mock   -> mock ros2_control (arm reports SUCCESS, no servos move)
+    #   serial -> JetankSerialHardware (real servos on /dev/ttyTHS1)
 
     pkg_jetank_moveit = get_package_share_directory('jetank_moveit_config')
     moveit_bringup = IncludeLaunchDescription(
@@ -213,6 +280,7 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             'use_rviz': 'false',  # The unified launch handles its own RViz.
+            'hardware': hardware,
         }.items(),
         condition=IfCondition(enable_moveit),
     )
@@ -262,10 +330,11 @@ def generate_launch_description():
             '  Use Sim Time:   ', use_sim_time, '\n',
             '  Web Control:    ', enable_web_control, ' (port ', web_port, ')\n',
             '  Navigation:     ', enable_navigation, ' (', navigation_mode, ')\n',
-            '  MoveIt2:        ', enable_moveit, '\n',
+            '  MoveIt2:        ', enable_moveit, ' (hardware=', hardware, ')\n',
             '  LiDAR: RPLidar C1M1 (hardware)\n',
             '  IMU: ICM-20948 (imu/data_raw, imu/magnetic_field)\n',
             '  Map File:       ', map_file, '\n',
+            '  Camera frames:  left=', left_frame_id, ' right=', right_frame_id, '\n',
             '========================================\n'
         ]
     )
@@ -284,6 +353,9 @@ def generate_launch_description():
     ld.add_action(declare_enable_moveit)
     ld.add_action(declare_navigation_mode)
     ld.add_action(declare_map_file)
+    ld.add_action(declare_hardware)
+    ld.add_action(declare_left_frame_id)
+    ld.add_action(declare_right_frame_id)
 
     # Launch info
     ld.add_action(launch_info)
