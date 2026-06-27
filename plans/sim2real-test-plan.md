@@ -188,3 +188,35 @@ These come straight from the gap analysis and bound how far you can get today:
 3. Re-home arm in mock before re-attempting serial.
 4. Revert: `git checkout main` in the three repos (branch
    `feature/sim2real-hardware-bringup` is isolated).
+
+---
+
+## Test execution log — 2026-06-27 (hardware bring-up session)
+
+Arm hardware: **4× SCS15-AP + 1× SCS15-S** on `/dev/ttyTHS1` @ 1 Mbps (SCS/SCSCL:
+big-endian, 0–1023, center 512). Branch `feature/sim2real-hardware-bringup`.
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 Pre-flight | ✅ | i2c/gpio/dialout groups, /dev/i2c-7 + /dev/ttyTHS1 present |
+| 1 Static | ✅ | build, xacro 3-mode plugin (bare=safe mock), pluginlib registered |
+| 2 HW presence | ✅ | PCA9685 @0x60; all 5 servos ping+read healthy ~6.5 V, err 0x00 |
+| 3a Mock | ✅ | jsb + arm + gripper controllers ALL active — **CM 2.54 blocker fixed** |
+| 3b minimal (raw) | ✅ | per-servo torque+move on all 5: no snap, correct dir, returned, relaxed |
+| 3b full serial | ✅ | real JetankSerialHardware lifecycle: on_activate torque-all-5, real joint_states, controllers active, clean on_deactivate torque-off |
+| 4 Arm via MoveIt | ⏳ | blocked only by the headless-CLI trigger bug — drive via RViz/interactive |
+| 5 Base + odom | ⏳ | not yet run |
+| 6 Perception (CSI) | ⏳ | not yet run; needs system ROS2 + sock_real.pt |
+| 7–8 Pipeline / pick | ⏳ | not yet run |
+
+**Root cause fixed — CM 2.54 "joints parameter is empty":** controller_manager 2.54
+loads a controller's `params_file` into the controller node where rclcpp matches
+ONLY a bare `/**` wildcard key (bare name / `/<name>` / `/**/<name>` all fail).
+Fix = per-controller files `jetank_motor_control/config/controllers/{arm,gripper}_controller.yaml`
+under `/**`, passed via spawner `--param-file` in `moveit_bringup.launch.py`.
+
+**Known issues:**
+- Headless `ros2 action send_goal` / `ros2 topic pub` fail (`rcl context is invalid`)
+  from background shells (echo/list work). Command the arm interactively (RViz).
+- Calibration TODO: per-servo zero/direction; `gripper_left_joint` is prismatic
+  (m) but scaled as rotary rad — needs its own mapping.
