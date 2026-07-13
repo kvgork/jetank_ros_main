@@ -292,20 +292,7 @@ Each package documents its own ROS 2 interface (nodes, topics, actions, services
 | `jetank_mission` | [README](https://github.com/kvgork/jetank_mission#ros-2-api) — `mission_coordinator` FSM, `RunMission` action, `web_mission.launch.py` |
 | `jetank_description` | [README](https://github.com/kvgork/jetank_description#ros-2-api) — URDF/xacro model + in-model sensor topics (no runtime nodes) |
 
-This seed package itself runs only one helper node:
-
-### Nodes
-
-| Node name | Executable | Role |
-|---|---|---|
-| `gripper_mimic_relay` | `gripper_mimic_relay` | Sim-only relay: mirrors the left gripper finger to the right so Gazebo Fortress moves both jaws (works around Fortress not enforcing URDF `<mimic>`). |
-
-| Direction | Topic | Type |
-|---|---|---|
-| sub | `/joint_states` | `sensor_msgs/JointState` |
-| pub | `/gripper_right_mimic_controller/commands` | `std_msgs/Float64MultiArray` |
-
-Plus two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
+This seed package itself ships no runtime nodes (the sim-only `gripper_mimic_relay` lives in `jetank_simulation`) — only two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
 
 ---
 
@@ -324,8 +311,6 @@ colcon test-result --verbose
 
 | Test file | Imports | Asserts |
 |---|---|---|
-| `test/test_import.py` | `jetank_ros_main.gripper_mimic_relay` | The module imports and exposes `GripperMimicRelay` + `main`, and the right-finger command topic string is unchanged (interface contract). |
-| | | The pure `_js_callback` mimic logic (built via `object.__new__`, no ROS Node): forwards the `gripper_left_joint` position, skips when the joint is absent / the position array is too short / empty, dedups changes below the 1e-6 threshold, re-publishes above it, and fires on the first message from the `-1.0` sentinel. |
 | `test/test_flake8.py` | `ament_flake8` | flake8 (PEP 8) is clean across the package. |
 | `test/test_pep257.py` | `ament_pep257` | Docstrings follow PEP 257. |
 | `test/test_copyright.py` | `ament_copyright` | Copyright headers present — **skipped** (no headers placed yet). |
