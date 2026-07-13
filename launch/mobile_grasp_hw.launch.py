@@ -34,7 +34,6 @@ PRE-REQUISITES (NOT handled here — see plans/sim2real-gap-analysis.md):
 Args:
   model_path_real (/home/koen/models/sock_real.pt)  real YOLO/TRT model
   confidence      (0.5)    detector confidence
-  use_rviz        (false)  MoveIt RViz
   enable_web_control (false)  browser teleop (own cmd_vel_bridge is used instead)
 """
 
@@ -56,7 +55,6 @@ from launch_ros.actions import Node
 def generate_launch_description():
     model_path_real = LaunchConfiguration("model_path_real")
     confidence = LaunchConfiguration("confidence")
-    use_rviz = LaunchConfiguration("use_rviz")
     enable_web_control = LaunchConfiguration("enable_web_control")
 
     ros_main = get_package_share_directory("jetank_ros_main")
@@ -140,7 +138,6 @@ def generate_launch_description():
         DeclareLaunchArgument("model_path_real",
                               default_value="/home/koen/models/sock_real.pt"),
         DeclareLaunchArgument("confidence", default_value="0.5"),
-        DeclareLaunchArgument("use_rviz", default_value="false"),
         DeclareLaunchArgument("enable_web_control", default_value="false"),
         unified, cmd_vel_bridge, detector, pipeline, lc_configure, lc_activate,
     ])
