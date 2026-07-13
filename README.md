@@ -41,7 +41,7 @@
 - 🧦 **End-to-end fetch-sock mission** — click a point on the web map and the robot drives there, finds a sock, picks it up, carries it to a deposit zone and drops it (`NAVIGATE_TO_SITE → SEARCH → PICK → NAVIGATE_TO_DEPOSIT → DEPOSIT`). Works end-to-end in sim.
 - 🚀 **One-clone bootstrap** — clone the seed repo, run `install.sh`, and the whole multi-repo workspace + environment is provisioned for you.
 - 🖥️ **No system ROS 2 required** — the entire stack ships inside a [pixi](https://prefix.dev/) / [RoboStack](https://robostack.github.io/) conda environment. Works on `aarch64` (robot) and `x86_64` (dev laptop).
-- 🕹️ **One-command simulation** — `sim_demo.launch.py` boots Gazebo + RViz + SLAM (and optionally the arm + web UI) attached to a single sim.
+- 🕹️ **One-command simulation** — `sim_demo.launch.py` boots Gazebo + RViz + SLAM + arm + web UI + sock detection attached to a single sim (turn pieces off per-argument).
 - 🗺️ **SLAM + Nav2** — `slam_toolbox` builds a map from the lidar; Nav2 plans and drives autonomously.
 - 🦾 **MoveIt 2 arm** — 4-DOF arm with motion planning and an open-loop preset-grasp action server.
 - 👀 **Stereo perception** — IMX219-83 stereo camera with GPU/SGBM disparity and a YOLO11n sock detector (lifecycle action server).
@@ -161,15 +161,17 @@ ros2 launch jetank_ros_main sim_demo.launch.py
 
 | Arg | Default | Effect |
 |---|---|---|
-| `world` | `house` | `empty` · `simple_test` · `obstacle_course` · `sock_arena` · `house` |
+| `world` | `sock_arena` | `empty` · `simple_test` · `obstacle_course` · `sock_arena` · `house` |
 | `slam` | `true` | `slam_toolbox` builds `/map` from the sim lidar |
 | `rviz` | `true` | loads `rviz/unified.rviz` |
-| `arm` | `false` | also starts MoveIt `move_group` + `arm_controller`, attached to **this** sim |
-| `web` | `false` | also starts web control on `:8080` (with a Twist→TwistStamped bridge) |
+| `arm` | `true` | MoveIt `move_group` + `arm_controller` + grasp server, attached to **this** sim |
+| `web` | `true` | web control on `:8080` (with a Twist→TwistStamped bridge) |
+| `detect` | `true` | sock detector against the sim left camera, auto-configured + activated |
+| `model_path_sim` | `~/models/sock_sim.pt` | trained sim model (`.pt`/`.engine`) for the sock detector |
 
 ```bash
-# Everything in one sim: base + lidar + SLAM + arm + RViz
-ros2 launch jetank_ros_main sim_demo.launch.py arm:=true
+# Lighter bringup: just base + lidar + SLAM + RViz (no arm / web / detection)
+ros2 launch jetank_ros_main sim_demo.launch.py arm:=false web:=false detect:=false
 ```
 
 **Drive the base** — the controller takes **`TwistStamped`**:
@@ -185,8 +187,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 |---|---|---|
 | `simple_test` | box + cylinder | quick lidar / depth check |
 | `obstacle_course` | 5×5 m arena, walls + cylinders | lidar / Nav / SLAM |
-| `sock_arena` | room + furniture + socks | detection / manipulation |
-| `house` | 3-room house + doorways + furniture | SLAM + Nav2 *(default)* |
+| `sock_arena` | room + furniture + socks | detection / manipulation *(default)* |
+| `house` | 3-room house + doorways + furniture | SLAM + Nav2 |
 
 ### 🧦 Fetch-sock mission
 
