@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""Thin full-bringup wrapper around unified.launch.py.
+
+Kept for backwards compatibility with the documented command
+``ros2 launch jetank_ros_main main.launch.py``. All bringup logic lives in
+unified.launch.py (URDF + motor + stereo + IMU + lidar, plus optional
+layers); this wrapper only pins ``enable_web_control:=false`` to preserve
+main.launch.py's historical hardware-only scope. Other unified arguments
+(``enable_moveit``, ``enable_navigation``, ...) pass straight through when
+set on the CLI.
+"""
 
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
@@ -14,56 +24,21 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
-    use_sim_time = LaunchConfiguration('use_sim_time')
-
-    urdf_launch = IncludeLaunchDescription(
+    unified_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
                 FindPackageShare('jetank_ros_main'),
                 'launch',
-                'urdf.launch.py'
+                'unified.launch.py'
             ])
         ]),
         launch_arguments={
-            'use_sim_time': use_sim_time,
-            'use_rplidar': 'true'
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'enable_web_control': 'false',
         }.items()
-    )
-
-    motor_controller_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('jetank_ros_main'),
-                'launch',
-                'motor_controller.launch.py'
-            ])
-        ])
-    )
-
-    stereo_camera_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('jetank_perception'),
-                'launch',
-                'stereo_camera.launch.py'
-            ])
-        ])
-    )
-
-    lidar_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('jetank_navigation'),
-                'launch',
-                'lidar.launch.py'
-            ])
-        ])
     )
 
     return LaunchDescription([
         use_sim_time_arg,
-        urdf_launch,
-        motor_controller_launch,
-        stereo_camera_launch,
-        lidar_launch,
+        unified_launch,
     ])

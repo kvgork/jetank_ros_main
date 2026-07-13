@@ -237,7 +237,7 @@ pixi run urdf                       # robot model in RViz
 
 | Subsystem | Launch |
 |---|---|
-| Full bringup | `ros2 launch jetank_ros_main main.launch.py` |
+| Full bringup | `ros2 launch jetank_ros_main unified.launch.py` (`main.launch.py` is a thin wrapper that disables the web UI) |
 | Navigation (SLAM/Nav2) | `ros2 launch jetank_navigation navigation_full.launch.py mode:=slam` |
 | Arm (MoveIt 2) | `ros2 launch jetank_moveit_config moveit_bringup.launch.py` |
 | Grasp action | `ros2 launch jetank_manipulation grasp.launch.py` |
