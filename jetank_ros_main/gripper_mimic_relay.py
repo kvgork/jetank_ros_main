@@ -41,9 +41,10 @@ class GripperMimicRelay(Node):
         super().__init__("gripper_mimic_relay")
 
         self._left_joint = "gripper_left_joint"
+        self._left_idx: int | None = None  # cached /joint_states index
         self._last_position: float = -1.0  # sentinel — force first publish
 
-        # Match joint_state_broadcaster QoS: RELIABLE + TRANSIENT_LOCAL
+        # Match joint_state_broadcaster QoS: RELIABLE + VOLATILE
         js_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.VOLATILE,
@@ -71,10 +72,16 @@ class GripperMimicRelay(Node):
 
     def _js_callback(self, msg: JointState) -> None:
         """Forward gripper_left_joint position to the right-finger topic."""
-        try:
-            idx = msg.name.index(self._left_joint)
-        except ValueError:
-            return
+        # Joint ordering from a given broadcaster is stable, so resolve the
+        # index once and only re-scan if the cached slot no longer matches.
+        idx = self._left_idx
+        if idx is None or idx >= len(msg.name) or msg.name[idx] != self._left_joint:
+            try:
+                idx = msg.name.index(self._left_joint)
+            except ValueError:
+                self._left_idx = None
+                return
+            self._left_idx = idx
 
         if not msg.position or idx >= len(msg.position):
             return

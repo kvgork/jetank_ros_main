@@ -131,6 +131,7 @@ def _make_relay():
     """Build a GripperMimicRelay without invoking the ROS Node __init__."""
     node = relay.GripperMimicRelay.__new__(relay.GripperMimicRelay)
     node._left_joint = 'gripper_left_joint'
+    node._left_idx = None
     node._last_position = -1.0
     node._cmd_pub = _RecordingPub()
     node._logger = _SilentLogger()
