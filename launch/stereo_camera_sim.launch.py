@@ -27,10 +27,6 @@ def generate_launch_description():
                 'frames.right_frame_id': 'camera_right_optical_frame',
             }
         ],
-        remappings=[
-            ('/stereo_camera/left/image_raw', '/stereo_camera/left/image_raw'),
-            ('/stereo_camera/right/image_raw', '/stereo_camera/right/image_raw'),
-        ],
         output='screen'
     )
 

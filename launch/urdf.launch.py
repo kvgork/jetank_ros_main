@@ -38,7 +38,6 @@ def generate_launch_description():
             package='robot_state_publisher',
             executable='robot_state_publisher',
             name='robot_state_publisher',
-            # output='screen',
             parameters=[{
                 'robot_description': ParameterValue(robot_description_config, value_type=str),
                 'use_sim_time': use_sim_time
@@ -50,17 +49,6 @@ def generate_launch_description():
             package='joint_state_publisher',
             executable='joint_state_publisher',
             name='joint_state_publisher',
-            # output='screen',
             parameters=[{'use_sim_time': use_sim_time}]
         ),
-
-        # # RViz2
-        # Node(
-        #     package='rviz2',
-        #     executable='rviz2',
-        #     name='rviz2',
-        #     output='screen',
-        #     parameters=[{'use_sim_time': use_sim_time}],
-        #     #arguments=['-d', os.path.join(pkg_share, 'config', 'robot_view.rviz')]
-        # )
     ])
