@@ -1,3 +1,5 @@
+from jetank_ros_main.topics import camera_namespace
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -10,11 +12,13 @@ def generate_launch_description():
     # Stereo camera node driven by simulated stereo image topics (gz).
     # In ros_topics mode it subscribes to the simulated stereo stream instead of
     # capturing from CSI cameras, and produces DisparityImage + PointCloud2.
+    # Namespace derives from the topic contract (config/topics.yaml), so the
+    # producer renames together with its consumers.
     stereo_camera_node = Node(
         package='jetank_perception',
         executable='stereo_camera_node',
         name='stereo_camera_node',
-        namespace='stereo_camera',
+        namespace=camera_namespace(),
         parameters=[
             PathJoinSubstitution([pkg_jetank_perception, 'config', 'stereo_camera_config.yaml']),
             {

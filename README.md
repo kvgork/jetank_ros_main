@@ -296,6 +296,8 @@ Each package documents its own ROS 2 interface (nodes, topics, actions, services
 
 This seed package itself ships no runtime nodes (the sim-only `gripper_mimic_relay` lives in `jetank_simulation`) — only two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
 
+**Topic contract** — [`config/topics.yaml`](config/topics.yaml) is the single source of truth for the topic names that cross package boundaries (left camera raw + compressed streams, `/detections/socks` + its debug image). The launch files here read it through the `jetank_ros_main.topics` helper module and pass the names explicitly to the `sock_detector` and `web_control_node` includes (via their declared launch args, plus scoped `SetParameter` for the detection topics those launch files don't forward), so a cross-package topic rename is a one-file edit. The consumer nodes in `jetank_detection`/`jetank_web_control` keep the same values as parameter defaults for standalone use, and the file doubles as a standard ROS 2 params file (e.g. `--params-file` for `capture_frames`).
+
 ---
 
 ## 🧪 Tests

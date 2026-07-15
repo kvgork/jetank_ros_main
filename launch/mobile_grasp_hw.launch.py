@@ -43,16 +43,25 @@ Args:
 import os
 
 from ament_index_python.packages import get_package_share_directory
+
+from jetank_ros_main.topics import (
+    camera_left_raw,
+    detections_socks,
+    detections_socks_debug,
+)
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    GroupAction,
     IncludeLaunchDescription,
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+
+from launch_ros.actions import Node, SetParameter
 
 
 def generate_launch_description():
@@ -100,18 +109,26 @@ def generate_launch_description():
         }],
     )
 
-    # --- detector (real model), staggered after the core stack is up ---
+    # --- detector (real model), staggered after the core stack is up.
+    #     Topic names come from the system topic contract (config/topics.yaml);
+    #     the detections/debug topics ride a scoped SetParameter because
+    #     detect_real.launch.py declares no launch args for them. ---
     detector = TimerAction(period=12.0, actions=[
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(detection, "launch", "detect_real.launch.py")
+        GroupAction([
+            SetParameter(name="detections_topic", value=detections_socks()),
+            SetParameter(name="debug_image_topic", value=detections_socks_debug()),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(detection, "launch", "detect_real.launch.py")
+                ),
+                launch_arguments={
+                    "input_image_topic": camera_left_raw(),
+                    "model_path_real": model_path_real,
+                    "continuous": "true",
+                    "confidence": confidence,
+                }.items(),
             ),
-            launch_arguments={
-                "model_path_real": model_path_real,
-                "continuous": "true",
-                "confidence": confidence,
-            }.items(),
-        ),
+        ]),
     ])
 
     # --- pipeline nodes (use_sim_time:=false) ---
