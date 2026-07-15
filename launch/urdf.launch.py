@@ -1,25 +1,41 @@
+"""
+Publish the canonical JeTank robot model (robot_state_publisher + JSP).
+
+Expands the canonical entrypoint jetank_description/urdf/
+jetank_ros2_control.urdf.xacro via the canonical include
+jetank_description/launch/robot_description.launch.py (the same model used
+by the sim2real bringup, jetank_simulation and jetank_moveit_config). The
+ros2_control block is disabled here (use_ros2_control:=false): this launch
+only publishes description + TF for visualisation/bringup; controllers are
+brought up by the motor/MoveIt layers.
+"""
 import os
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, Command
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
-    # Get the package directory
+    """Generate the description-publishing launch description."""
     pkg_share = get_package_share_directory('jetank_description')
 
-    # Path to URDF file
-    urdf_file = os.path.join(pkg_share, 'urdf', 'jetank.xacro')
-
-    # Declare launch arguments
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
-    use_rplidar = LaunchConfiguration('use_rplidar', default='true')
 
-    # Read URDF content - process XACRO file
-    robot_description_config = Command(['xacro', ' ', urdf_file, ' use_rplidar:=', use_rplidar])
+    # Canonical include: expands jetank_ros2_control.urdf.xacro and starts
+    # robot_state_publisher.
+    robot_description_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_share, 'launch', 'robot_description.launch.py')
+        ),
+        launch_arguments={
+            'use_ros2_control': 'false',
+            'use_sim_time': use_sim_time,
+        }.items()
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -27,22 +43,8 @@ def generate_launch_description():
             default_value='false',
             description='Use simulation (Gazebo) clock if true'
         ),
-        DeclareLaunchArgument(
-            'use_rplidar',
-            default_value='true',
-            description='Include RPLidar sensor in URDF (enables laser TF frame)'
-        ),
 
-        # Robot State Publisher
-        Node(
-            package='robot_state_publisher',
-            executable='robot_state_publisher',
-            name='robot_state_publisher',
-            parameters=[{
-                'robot_description': ParameterValue(robot_description_config, value_type=str),
-                'use_sim_time': use_sim_time
-            }]
-        ),
+        robot_description_launch,
 
         # Joint State Publisher
         Node(

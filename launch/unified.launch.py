@@ -185,8 +185,7 @@ def generate_launch_description():
             os.path.join(pkg_jetank_main, 'launch', 'urdf.launch.py')
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time,
-            'use_rplidar': 'true'
+            'use_sim_time': use_sim_time
         }.items()
     )
 
