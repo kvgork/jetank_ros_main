@@ -15,7 +15,6 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
-        (os.path.join('share', package_name, 'worlds'), glob('worlds/*.sdf')),
     ],
     install_requires=['setuptools'],
     # Declares pytest as a test dependency via extras_require (NOT the legacy
@@ -32,7 +31,6 @@ setup(
         'console_scripts': [
             'test_drive = jetank_ros_main.scripts.test_drive:main',
             'test_cameras = jetank_ros_main.scripts.test_cameras:main',
-            'gripper_mimic_relay = jetank_ros_main.gripper_mimic_relay:main',
         ],
     },
 )

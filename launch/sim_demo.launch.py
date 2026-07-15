@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-r"""One-shot simulation demo bring-up for the JeTank robot.
+r"""
+One-shot simulation demo bring-up for the JeTank robot.
 
 Brings up the WHOLE demo with no arguments — `ros2 launch jetank_ros_main
 sim_demo.launch.py` starts:
@@ -39,11 +40,24 @@ Move the arm interactively with MoveIt instead via::
 
 import os
 
+from jetank_ros_main.topics import (
+    camera_left_raw,
+    detections_socks,
+    detections_socks_debug,
+)
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    GroupAction,
+    IncludeLaunchDescription,
+)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+
+from launch_ros.actions import SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -140,32 +154,53 @@ def generate_launch_description():
     )
 
     # 5. Optional web control (sim mode): serves the UI on :8080 and bridges
-    #    its Twist /cmd_vel to the controller's TwistStamped topic.
-    web_stack = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([FindPackageShare('jetank_web_control'),
-                                  'launch', 'web_control.launch.py'])),
+    #    its Twist /cmd_vel to the controller's TwistStamped topic. Topic names
+    #    come from the system topic contract (config/topics.yaml): the raw
+    #    camera stream (Gazebo has no compressed transport) as a launch arg,
+    #    and the detections topic via a scoped SetParameter (the included
+    #    launch file declares no launch arg for it).
+    web_stack = GroupAction(
         condition=IfCondition(web),
-        launch_arguments={'sim': 'true'}.items(),
+        actions=[
+            SetParameter(name='detections_topic', value=detections_socks()),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([FindPackageShare('jetank_web_control'),
+                                          'launch', 'web_control.launch.py'])),
+                launch_arguments={
+                    'sim': 'true',
+                    'image_topic': camera_left_raw(),
+                }.items(),
+            ),
+        ],
     )
 
     # 6. Optional sock detector (jetank_detection): uses the SIM entry point
     #    (detect_sim.launch.py), which pins sim:=true so the node loads the sim
     #    model (model_path_sim) — sim and real need different models because the
     #    synthetic Gazebo imagery differs from real camera frames.
-    #    The sim publishes /stereo_camera/left/image_raw — same as the real robot,
+    #    The sim publishes the same left-camera raw topic as the real robot,
     #    so no remapping is needed. Runs continuous (live) by default.
     #    The detector lifecycle is auto-activated by detector_autostart below.
-    detect_stack = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([FindPackageShare('jetank_detection'),
-                                  'launch', 'detect_sim.launch.py'])),
+    #    Topic names come from the system topic contract (config/topics.yaml);
+    #    the detections/debug topics ride a scoped SetParameter because the
+    #    included launch file declares no launch args for them.
+    detect_stack = GroupAction(
         condition=IfCondition(detect),
-        launch_arguments={
-            'input_image_topic': '/stereo_camera/left/image_raw',
-            'continuous': 'true',
-            'model_path_sim': model_path_sim,
-        }.items(),
+        actions=[
+            SetParameter(name='detections_topic', value=detections_socks()),
+            SetParameter(name='debug_image_topic', value=detections_socks_debug()),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([FindPackageShare('jetank_detection'),
+                                          'launch', 'detect_sim.launch.py'])),
+                launch_arguments={
+                    'input_image_topic': camera_left_raw(),
+                    'continuous': 'true',
+                    'model_path_sim': model_path_sim,
+                }.items(),
+            ),
+        ],
     )
 
     # 7. Grasp server (jetank_manipulation): advertises /grasp_object and backs the

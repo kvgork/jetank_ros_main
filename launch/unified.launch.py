@@ -57,17 +57,27 @@ Usage:
 """
 
 import os
+
 from ament_index_python.packages import get_package_share_directory
+
+from jetank_ros_main.topics import (
+    camera_left_compressed,
+    camera_namespace,
+    detections_socks,
+)
+
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
     LogInfo,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import Node
+
+from launch_ros.actions import Node, SetParameter
 
 
 def generate_launch_description():
@@ -185,8 +195,7 @@ def generate_launch_description():
             os.path.join(pkg_jetank_main, 'launch', 'urdf.launch.py')
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time,
-            'use_rplidar': 'true'
+            'use_sim_time': use_sim_time
         }.items()
     )
 
@@ -208,14 +217,26 @@ def generate_launch_description():
 
     pkg_web_control = get_package_share_directory('jetank_web_control')
 
-    web_control_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_web_control, 'launch', 'web_control.launch.py')
-        ),
-        launch_arguments={'web_port': web_port}.items(),
+    # Topic names come from the system topic contract (config/topics.yaml):
+    # the compressed camera stream (real robot) as a launch arg, the
+    # detections topic via a scoped SetParameter (the included launch file
+    # declares no launch arg for it).
+    web_control_launch = GroupAction(
         condition=IfCondition(PythonExpression([
             "'", enable_web_control, "' == 'true'"
-        ]))
+        ])),
+        actions=[
+            SetParameter(name='detections_topic', value=detections_socks()),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(pkg_web_control, 'launch', 'web_control.launch.py')
+                ),
+                launch_arguments={
+                    'web_port': web_port,
+                    'image_topic': camera_left_compressed(),
+                }.items(),
+            ),
+        ],
     )
 
     # ============================================================================
@@ -237,7 +258,9 @@ def generate_launch_description():
             os.path.join(pkg_jetank_perception, 'launch', 'stereo_camera.launch.py')
         ),
         launch_arguments={
-            'namespace': 'stereo_camera',
+            # Namespace derives from the topic contract (config/topics.yaml),
+            # so producer and consumers rename together.
+            'namespace': camera_namespace(),
             'publish_camera_transforms': 'false',  # TF handled by URDF
             'left_frame_id': left_frame_id,
             'right_frame_id': right_frame_id,
@@ -258,7 +281,6 @@ def generate_launch_description():
             os.path.join(pkg_jetank_navigation, 'launch', 'lidar.launch.py')
         )
     )
-
 
     # ============================================================================
     # LAYER 3: MOVEIT2 ARM CONTROL (Conditional)

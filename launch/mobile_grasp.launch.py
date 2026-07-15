@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""All-in-one mobile sock-grasp stack (sim).
+"""
+All-in-one mobile sock-grasp stack (sim).
 
 Brings up the entire pick pipeline in one command so the mobile-manip grasp can be
 driven/validated interactively:
@@ -12,22 +13,32 @@ Then trigger a pick:
   ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
 
 Args:
+----
   world           (sock_arena)  Gazebo world
   model_path_sim  (/home/koen/models/sock_sim.pt)  YOLO sim model
   confidence      (0.3)         detector confidence
   use_rviz        (true)        MoveIt RViz (set false for headless/CI)
+
 """
+
+from jetank_ros_main.topics import (
+    camera_left_raw,
+    detections_socks,
+    detections_socks_debug,
+)
 
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     ExecuteProcess,
+    GroupAction,
     IncludeLaunchDescription,
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
+
+from launch_ros.actions import Node, SetParameter
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -70,9 +81,18 @@ def generate_launch_description():
     perception = TimerAction(period=26.0, actions=[
         inc(ros_main, "stereo_camera_sim.launch.py"),
     ])
+    # Topic names come from the system topic contract (config/topics.yaml);
+    # the detections/debug topics ride a scoped SetParameter because
+    # detect_sim.launch.py declares no launch args for them.
     detector = TimerAction(period=30.0, actions=[
-        inc(detection, "detect_sim.launch.py",
-            model_path_sim=model_path_sim, continuous="true", confidence=confidence),
+        GroupAction([
+            SetParameter(name="detections_topic", value=detections_socks()),
+            SetParameter(name="debug_image_topic", value=detections_socks_debug()),
+            inc(detection, "detect_sim.launch.py",
+                input_image_topic=camera_left_raw(),
+                model_path_sim=model_path_sim, continuous="true",
+                confidence=confidence),
+        ]),
     ])
 
     # --- pipeline nodes ---

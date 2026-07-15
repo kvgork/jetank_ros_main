@@ -1,0 +1,45 @@
+# JeTank system topic contract (audit cross-8).
+#
+# Single source of truth for topic names that cross package boundaries
+# (producer in one package, consumer in another). The consumer nodes in
+# jetank_detection and jetank_web_control declare the same values as
+# parameter DEFAULTS (their fallbacks when launched standalone); the
+# jetank_ros_main launch files pass them explicitly via the
+# jetank_ros_main.topics helper module, which reads this file. To rename a
+# cross-package topic (e.g. the camera namespace), edit this file only.
+#
+# The contract:
+#   /stereo_camera/left/image_raw             left camera, raw (sim + real)
+#   /stereo_camera/left/image_raw/compressed  left camera, compressed (real
+#                                             robot browser stream)
+#   /detections/socks                         sock detector output
+#                                             (vision_msgs Detection2DArray)
+#   /detections/socks/debug                   annotated detection debug image
+#
+# Layout is a standard ROS 2 parameters file (node name -> ros__parameters),
+# so a section can also be loaded directly onto a node, e.g.:
+#
+#   ros2 run jetank_detection capture_frames --ros-args --params-file \
+#     $(ros2 pkg prefix jetank_ros_main)/share/jetank_ros_main/config/topics.yaml
+#
+# NOTE: values are intentionally repeated between sections (rcl's YAML
+# parameter parser does not support anchors/aliases); jetank_ros_main.topics
+# raises at launch-parse time if the sections drift apart.
+
+sock_detector:
+  ros__parameters:
+    input_image_topic: /stereo_camera/left/image_raw
+    detections_topic: /detections/socks
+    debug_image_topic: /detections/socks/debug
+
+frame_capture:
+  ros__parameters:
+    input_image_topic: /stereo_camera/left/image_raw
+
+web_control_node:
+  ros__parameters:
+    # The real robot streams the compressed transport to the browser; in sim
+    # the launch files pass the raw topic instead (Gazebo publishes no
+    # compressed transport).
+    image_topic: /stereo_camera/left/image_raw/compressed
+    detections_topic: /detections/socks

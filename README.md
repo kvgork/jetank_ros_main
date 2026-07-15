@@ -41,7 +41,7 @@
 - 🧦 **End-to-end fetch-sock mission** — click a point on the web map and the robot drives there, finds a sock, picks it up, carries it to a deposit zone and drops it (`NAVIGATE_TO_SITE → SEARCH → PICK → NAVIGATE_TO_DEPOSIT → DEPOSIT`). Works end-to-end in sim.
 - 🚀 **One-clone bootstrap** — clone the seed repo, run `install.sh`, and the whole multi-repo workspace + environment is provisioned for you.
 - 🖥️ **No system ROS 2 required** — the entire stack ships inside a [pixi](https://prefix.dev/) / [RoboStack](https://robostack.github.io/) conda environment. Works on `aarch64` (robot) and `x86_64` (dev laptop).
-- 🕹️ **One-command simulation** — `sim_demo.launch.py` boots Gazebo + RViz + SLAM (and optionally the arm + web UI) attached to a single sim.
+- 🕹️ **One-command simulation** — `sim_demo.launch.py` boots Gazebo + RViz + SLAM + arm + web UI + sock detection attached to a single sim (turn pieces off per-argument).
 - 🗺️ **SLAM + Nav2** — `slam_toolbox` builds a map from the lidar; Nav2 plans and drives autonomously.
 - 🦾 **MoveIt 2 arm** — 4-DOF arm with motion planning and an open-loop preset-grasp action server.
 - 👀 **Stereo perception** — IMX219-83 stereo camera with GPU/SGBM disparity and a YOLO11n sock detector (lifecycle action server).
@@ -99,7 +99,7 @@ flowchart TB
         MISSION["jetank_mission<br/>mission_coordinator FSM<br/>RunMission action"]
     end
 
-    MAIN["jetank_ros_main<br/>(integration seed: launch, worlds, configs, install.sh)"]
+    MAIN["jetank_ros_main<br/>(integration seed: launch, configs, install.sh)"]
 
     MAIN --- desc & base & sense & nav & arm & io & mission
     URDF --> MOTOR & MOVEIT & SIM
@@ -112,7 +112,7 @@ flowchart TB
 
 | Package | Build | Role |
 |---|---|---|
-| [`jetank_ros_main`](https://github.com/kvgork/jetank_ros_main) | ament_python | **Seed / integration** — top-level launch files, Gazebo worlds, RViz configs, `motor_params.yaml`, `install.sh` + bootstrap template |
+| [`jetank_ros_main`](https://github.com/kvgork/jetank_ros_main) | ament_python | **Seed / integration** — top-level launch files, RViz configs, `motor_params.yaml`, `install.sh` + bootstrap template |
 | [`jetank_description`](https://github.com/kvgork/jetank_description) | ament_cmake | URDF / xacro robot model (primitive geometry, no meshes) |
 | [`jetank_motor_control`](https://github.com/kvgork/jetank_motor_control) | ament_cmake | `ros2_control` hardware interface + diff-drive driver (libgpiod / PCA9685) |
 | [`jetank_perception`](https://github.com/kvgork/jetank_perception) | ament_cmake | Stereo / mono camera nodes, GPU + SGBM disparity (strategy pattern) |
@@ -161,15 +161,17 @@ ros2 launch jetank_ros_main sim_demo.launch.py
 
 | Arg | Default | Effect |
 |---|---|---|
-| `world` | `house` | `empty` · `simple_test` · `obstacle_course` · `sock_arena` · `house` |
+| `world` | `sock_arena` | `empty` · `simple_test` · `obstacle_course` · `sock_arena` · `house` |
 | `slam` | `true` | `slam_toolbox` builds `/map` from the sim lidar |
 | `rviz` | `true` | loads `rviz/unified.rviz` |
-| `arm` | `false` | also starts MoveIt `move_group` + `arm_controller`, attached to **this** sim |
-| `web` | `false` | also starts web control on `:8080` (with a Twist→TwistStamped bridge) |
+| `arm` | `true` | MoveIt `move_group` + `arm_controller` + grasp server, attached to **this** sim |
+| `web` | `true` | web control on `:8080` (with a Twist→TwistStamped bridge) |
+| `detect` | `true` | sock detector against the sim left camera, auto-configured + activated |
+| `model_path_sim` | `~/models/sock_sim.pt` | trained sim model (`.pt`/`.engine`) for the sock detector |
 
 ```bash
-# Everything in one sim: base + lidar + SLAM + arm + RViz
-ros2 launch jetank_ros_main sim_demo.launch.py arm:=true
+# Lighter bringup: just base + lidar + SLAM + RViz (no arm / web / detection)
+ros2 launch jetank_ros_main sim_demo.launch.py arm:=false web:=false detect:=false
 ```
 
 **Drive the base** — the controller takes **`TwistStamped`**:
@@ -185,8 +187,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 |---|---|---|
 | `simple_test` | box + cylinder | quick lidar / depth check |
 | `obstacle_course` | 5×5 m arena, walls + cylinders | lidar / Nav / SLAM |
-| `sock_arena` | room + furniture + socks | detection / manipulation |
-| `house` | 3-room house + doorways + furniture | SLAM + Nav2 *(default)* |
+| `sock_arena` | room + furniture + socks | detection / manipulation *(default)* |
+| `house` | 3-room house + doorways + furniture | SLAM + Nav2 |
 
 ### 🧦 Fetch-sock mission
 
@@ -237,7 +239,7 @@ pixi run urdf                       # robot model in RViz
 
 | Subsystem | Launch |
 |---|---|
-| Full bringup | `ros2 launch jetank_ros_main main.launch.py` |
+| Full bringup | `ros2 launch jetank_ros_main unified.launch.py` (`main.launch.py` is a thin wrapper that disables the web UI) |
 | Navigation (SLAM/Nav2) | `ros2 launch jetank_navigation navigation_full.launch.py mode:=slam` |
 | Arm (MoveIt 2) | `ros2 launch jetank_moveit_config moveit_bringup.launch.py` |
 | Grasp action | `ros2 launch jetank_manipulation grasp.launch.py` |
@@ -292,20 +294,9 @@ Each package documents its own ROS 2 interface (nodes, topics, actions, services
 | `jetank_mission` | [README](https://github.com/kvgork/jetank_mission#ros-2-api) — `mission_coordinator` FSM, `RunMission` action, `web_mission.launch.py` |
 | `jetank_description` | [README](https://github.com/kvgork/jetank_description#ros-2-api) — URDF/xacro model + in-model sensor topics (no runtime nodes) |
 
-This seed package itself runs only one helper node:
+This seed package itself ships no runtime nodes (the sim-only `gripper_mimic_relay` lives in `jetank_simulation`) — only two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
 
-### Nodes
-
-| Node name | Executable | Role |
-|---|---|---|
-| `gripper_mimic_relay` | `gripper_mimic_relay` | Sim-only relay: mirrors the left gripper finger to the right so Gazebo Fortress moves both jaws (works around Fortress not enforcing URDF `<mimic>`). |
-
-| Direction | Topic | Type |
-|---|---|---|
-| sub | `/joint_states` | `sensor_msgs/JointState` |
-| pub | `/gripper_right_mimic_controller/commands` | `std_msgs/Float64MultiArray` |
-
-Plus two run-and-exit diagnostic scripts: `test_drive` (drives a base test sequence, reads `/odom`) and `test_cameras` (validates the stereo image/`camera_info` topics). This package defines no `msg`/`srv`/`action` of its own — the robot's runtime interfaces live in the sibling packages above.
+**Topic contract** — [`config/topics.yaml`](config/topics.yaml) is the single source of truth for the topic names that cross package boundaries (left camera raw + compressed streams, `/detections/socks` + its debug image). The launch files here read it through the `jetank_ros_main.topics` helper module and pass the names explicitly to the `sock_detector` and `web_control_node` includes (via their declared launch args, plus scoped `SetParameter` for the detection topics those launch files don't forward), so a cross-package topic rename is a one-file edit. The consumer nodes in `jetank_detection`/`jetank_web_control` keep the same values as parameter defaults for standalone use, and the file doubles as a standard ROS 2 params file (e.g. `--params-file` for `capture_frames`).
 
 ---
 
@@ -324,8 +315,6 @@ colcon test-result --verbose
 
 | Test file | Imports | Asserts |
 |---|---|---|
-| `test/test_import.py` | `jetank_ros_main.gripper_mimic_relay` | The module imports and exposes `GripperMimicRelay` + `main`, and the right-finger command topic string is unchanged (interface contract). |
-| | | The pure `_js_callback` mimic logic (built via `object.__new__`, no ROS Node): forwards the `gripper_left_joint` position, skips when the joint is absent / the position array is too short / empty, dedups changes below the 1e-6 threshold, re-publishes above it, and fires on the first message from the `-1.0` sentinel. |
 | `test/test_flake8.py` | `ament_flake8` | flake8 (PEP 8) is clean across the package. |
 | `test/test_pep257.py` | `ament_pep257` | Docstrings follow PEP 257. |
 | `test/test_copyright.py` | `ament_copyright` | Copyright headers present — **skipped** (no headers placed yet). |

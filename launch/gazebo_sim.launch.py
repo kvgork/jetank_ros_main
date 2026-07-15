@@ -2,14 +2,14 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import LaunchConfigurationEquals
 from launch.substitutions import LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 
 def generate_launch_description():
-    # Get package directories
-    pkg_jetank_ros_main = get_package_share_directory('jetank_ros_main')
+    # All world assets ship with jetank_simulation (the sim package owns worlds).
     pkg_jetank_simulation = get_package_share_directory('jetank_simulation')
 
     # Declare world selection argument
@@ -35,102 +35,15 @@ def generate_launch_description():
         description='Run the Gazebo GUI client (false => server-only).'
     )
 
-    # Map world names to file paths
-    # Note: Python dictionary used for world selection
+    # Map world names to .sdf files in jetank_simulation/worlds
     world_files = {
-        'empty': os.path.join(pkg_jetank_simulation, 'worlds', 'empty_fortress.sdf'),
-        'simple_test': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
-        'obstacle_course': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
-        'sock_arena': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
-        'house': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
+        'empty': 'empty_fortress.sdf',
+        'simple_test': 'simple_test.sdf',
+        'obstacle_course': 'obstacle_course.sdf',
+        'sock_arena': 'sock_arena.sdf',
+        'house': 'house.sdf',
     }
 
-    # Get selected world file path (default to empty if invalid selection)
-    # Note: This evaluates at launch time based on the world argument
-    def get_world_file(context):
-        world_choice = context.launch_configurations.get('world', 'empty')
-        return world_files.get(world_choice, world_files['empty'])
-
-    # Include base gazebo launch with selected world.
-    # NOTE: do not re-import LaunchConfiguration here — a function-local import
-    # shadows the module-level one (line 5) and makes every prior reference an
-    # UnboundLocalError. Only import the condition helper actually used below.
-    from launch.conditions import LaunchConfigurationEquals
-
-    # We need to use multiple IncludeLaunchDescription with conditions
-    # to properly substitute the world file path at launch time
-
-    # Empty world
-    gazebo_empty = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('jetank_simulation'),
-            '/launch/gazebo.launch.py'
-        ]),
-        launch_arguments={
-            'world': os.path.join(pkg_jetank_simulation, 'worlds', 'empty_fortress.sdf'),
-            'start_arm_active': start_arm_active,
-            'gui': gui,
-        }.items(),
-        condition=LaunchConfigurationEquals('world', 'empty')
-    )
-
-    # Simple test world
-    gazebo_simple_test = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('jetank_simulation'),
-            '/launch/gazebo.launch.py'
-        ]),
-        launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'simple_test.sdf'),
-            'start_arm_active': start_arm_active,
-            'gui': gui,
-        }.items(),
-        condition=LaunchConfigurationEquals('world', 'simple_test')
-    )
-
-    # Obstacle course world
-    gazebo_obstacle_course = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('jetank_simulation'),
-            '/launch/gazebo.launch.py'
-        ]),
-        launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'obstacle_course.sdf'),
-            'start_arm_active': start_arm_active,
-            'gui': gui,
-        }.items(),
-        condition=LaunchConfigurationEquals('world', 'obstacle_course')
-    )
-
-    # Sock arena world
-    gazebo_sock_arena = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('jetank_simulation'),
-            '/launch/gazebo.launch.py'
-        ]),
-        launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'sock_arena.sdf'),
-            'start_arm_active': start_arm_active,
-            'gui': gui,
-        }.items(),
-        condition=LaunchConfigurationEquals('world', 'sock_arena')
-    )
-
-    # House world (multi-room)
-    gazebo_house = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            FindPackageShare('jetank_simulation'),
-            '/launch/gazebo.launch.py'
-        ]),
-        launch_arguments={
-            'world': os.path.join(pkg_jetank_ros_main, 'worlds', 'house.sdf'),
-            'start_arm_active': start_arm_active,
-            'gui': gui,
-        }.items(),
-        condition=LaunchConfigurationEquals('world', 'house')
-    )
-
-    # Create launch description
     ld = LaunchDescription()
 
     # Declare arguments
@@ -138,11 +51,21 @@ def generate_launch_description():
     ld.add_action(declare_start_arm_active_arg)
     ld.add_action(declare_gui_arg)
 
-    # Add conditional gazebo launches
-    ld.add_action(gazebo_empty)
-    ld.add_action(gazebo_simple_test)
-    ld.add_action(gazebo_obstacle_course)
-    ld.add_action(gazebo_sock_arena)
-    ld.add_action(gazebo_house)
+    # One parameterized include per world name, gated on world:=<name>.
+    # An unrecognized name matches no condition and launches nothing (same
+    # semantics as the previous per-world blocks).
+    for name, sdf in world_files.items():
+        ld.add_action(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                FindPackageShare('jetank_simulation'),
+                '/launch/gazebo.launch.py'
+            ]),
+            launch_arguments={
+                'world': os.path.join(pkg_jetank_simulation, 'worlds', sdf),
+                'start_arm_active': start_arm_active,
+                'gui': gui,
+            }.items(),
+            condition=LaunchConfigurationEquals('world', name)
+        ))
 
     return ld
