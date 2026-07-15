@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""All-in-one mobile sock-grasp stack (sim).
+"""
+All-in-one mobile sock-grasp stack (sim).
 
 Brings up the entire pick pipeline in one command so the mobile-manip grasp can be
 driven/validated interactively:
@@ -12,10 +13,12 @@ Then trigger a pick:
   ros2 service call /mobile_grasp_coordinator/execute_sock_grasp std_srvs/srv/Trigger
 
 Args:
+----
   world           (sock_arena)  Gazebo world
   model_path_sim  (/home/koen/models/sock_sim.pt)  YOLO sim model
   confidence      (0.3)         detector confidence
   use_rviz        (true)        MoveIt RViz (set false for headless/CI)
+
 """
 
 from launch import LaunchDescription

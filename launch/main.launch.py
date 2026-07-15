@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Thin full-bringup wrapper around unified.launch.py.
+"""
+Thin full-bringup wrapper around unified.launch.py.
 
 Kept for backwards compatibility with the documented command
 ``ros2 launch jetank_ros_main main.launch.py``. All bringup logic lives in

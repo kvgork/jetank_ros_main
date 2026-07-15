@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""All-in-one mobile sock-grasp stack (HARDWARE).
+"""
+All-in-one mobile sock-grasp stack (HARDWARE).
 
 Hardware counterpart of ``mobile_grasp.launch.py`` (which is sim-only). Brings up
 the full pick pipeline on the physical JeTank:
@@ -32,9 +33,11 @@ PRE-REQUISITES (NOT handled here — see plans/sim2real-gap-analysis.md):
   - Bench safety: first bring-up with wheels off the ground.
 
 Args:
+----
   model_path_real (/home/koen/models/sock_real.pt)  real YOLO/TRT model
   confidence      (0.5)    detector confidence
   enable_web_control (false)  browser teleop (own cmd_vel_bridge is used instead)
+
 """
 
 import os

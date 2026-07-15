@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-r"""One-shot simulation demo bring-up for the JeTank robot.
+r"""
+One-shot simulation demo bring-up for the JeTank robot.
 
 Brings up the WHOLE demo with no arguments — `ros2 launch jetank_ros_main
 sim_demo.launch.py` starts:
