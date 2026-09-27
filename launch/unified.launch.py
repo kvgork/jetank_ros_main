@@ -207,7 +207,9 @@ def generate_launch_description():
     # to have at base_footprint, just moved one frame up. MoveIt2 instead plans
     # directly in 'odom' (jetank_moveit_config/config/jetank.srdf virtual_joint
     # parent_frame='odom'), which is a real, single-parented frame in this TF
-    # tree whether or not navigation is enabled.
+    # tree whether or not navigation is enabled. Requirement: odom->base_footprint
+    # comes from robot_controller (motor_controller.launch.py, publish_odom
+    # must stay true); with publish_odom:=false MoveIt has no planning frame.
 
     # ============================================================================
     # WEB CONTROL (Conditional)
