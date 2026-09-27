@@ -134,8 +134,14 @@ def generate_launch_description():
     # --- pipeline nodes (use_sim_time:=false) ---
     seg = Node(package="jetank_perception", executable="sock_segmentation_server",
                name="sock_segmentation_server", parameters=[not_sim], output="screen")
+    # gripper_action: on hardware moveit_bringup.launch.py works around the
+    # controller_manager 2.54/2.53.1 skew that collapses every controller onto
+    # the controller_manager node, so the GripperCommand server lives at
+    # /controller_manager/gripper_cmd instead of /gripper_controller/gripper_cmd.
     grasp = Node(package="jetank_manipulation", executable="grasp_server",
-                 name="grasp_server", parameters=[grasp_poses_yaml, not_sim],
+                 name="grasp_server",
+                 parameters=[grasp_poses_yaml, not_sim,
+                             {"gripper_action": "/controller_manager/gripper_cmd"}],
                  output="screen")
     # base_approach publishes TwistStamped to /cmd_vel_manip (bridged to /cmd_vel),
     # NOT the sim diff_drive_controller topic.
