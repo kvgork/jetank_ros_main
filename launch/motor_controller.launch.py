@@ -8,8 +8,11 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # Declare launch arguments
+    # Config lives with the node it configures (jetank_motor_control), not
+    # here -- co-locating them keeps the declared parameter names and the
+    # YAML keys that set them from drifting apart unnoticed.
     config = os.path.join(
-        get_package_share_directory('jetank_ros_main'),
+        get_package_share_directory('jetank_motor_control'),
         'config',
         'motor_params.yaml'
     )
