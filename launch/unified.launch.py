@@ -12,7 +12,10 @@ Launches integrated system with:
   - Navigation stack (optional, SLAM or Nav2)
 
 Launch arguments:
-  use_sim_time:       Use simulation clock (default: false)
+  use_sim_time:       Use simulation clock (default: false). Also gates the
+                      hardware layer (URDF/JSP, motor controller, stereo
+                      camera, IMU, lidar) off, since a sim source (e.g.
+                      Gazebo) already provides those topics.
   enable_web_control: Enable browser remote control (default: true)
   web_port:           Port for web control server (default: 8080)
   enable_navigation:  Enable Nav2/SLAM (default: false)
@@ -23,6 +26,12 @@ Launch arguments:
                       'serial' (real JetankSerial servos). Default 'mock'
                       preserves existing callers. Passed through to
                       moveit_bringup.launch.py unchanged.
+  enable_lidar:       Start the RPLidar driver (default: true). Set false
+                      for sessions with no lidar attached.
+  enable_imu:         Start the IMU driver (default: true). Set false when
+                      the ICM-20948 is not attached.
+  enable_perception:  Start the stereo camera pipeline (default: true). Set
+                      false for navigation- or arm-only sessions.
   left_frame_id:      Left camera optical frame id, forwarded to
                       stereo_camera.launch.py's left_frame_id arg (overrides the
                       non-optical *_link default in stereo_camera_config.yaml so
@@ -69,15 +78,19 @@ from jetank_ros_main.topics import (
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     GroupAction,
     IncludeLaunchDescription,
     LogInfo,
+    RegisterEventHandler,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
+from launch.event_handlers import OnProcessExit
+from launch.events.process import ShutdownProcess, matches_executable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 
-from launch_ros.actions import Node, SetParameter
+from launch_ros.actions import SetParameter
 
 
 def generate_launch_description():
@@ -102,6 +115,9 @@ def generate_launch_description():
     navigation_mode = LaunchConfiguration('navigation_mode')
     map_file = LaunchConfiguration('map_file')
     hardware = LaunchConfiguration('hardware')
+    enable_lidar = LaunchConfiguration('enable_lidar')
+    enable_imu = LaunchConfiguration('enable_imu')
+    enable_perception = LaunchConfiguration('enable_perception')
     left_frame_id = LaunchConfiguration('left_frame_id')
     right_frame_id = LaunchConfiguration('right_frame_id')
 
@@ -159,6 +175,38 @@ def generate_launch_description():
         )
     )
 
+    declare_enable_lidar = DeclareLaunchArgument(
+        'enable_lidar',
+        default_value='true',
+        description=(
+            'Start the RPLidar driver (jetank_navigation/lidar.launch.py). '
+            'Set to false for base/arm-only sessions with no lidar attached, '
+            'to avoid a driver process that immediately fails when '
+            '/dev/ttyUSB0 is absent.'
+        )
+    )
+
+    declare_enable_imu = DeclareLaunchArgument(
+        'enable_imu',
+        default_value='true',
+        description=(
+            'Start the IMU driver (jetank_navigation/imu.launch.py). '
+            'Set to false when the ICM-20948 is not attached.'
+        )
+    )
+
+    declare_enable_perception = DeclareLaunchArgument(
+        'enable_perception',
+        default_value='true',
+        description=(
+            'Start the stereo camera pipeline (jetank_perception/'
+            'stereo_camera.launch.py). Set to false for navigation- or '
+            'arm-only sessions that do not need the camera (e.g. '
+            'navigation_full.launch.py, which delegates its hardware '
+            'bring-up to this file).'
+        )
+    )
+
     # stereo_camera.launch.py has no launch args for frame_ids — they come from
     # stereo_camera_config.yaml (frames.left_frame_id / frames.right_frame_id).
     # We pass them as direct parameter overrides via launch_arguments using the
@@ -190,26 +238,38 @@ def generate_launch_description():
     # ============================================================================
 
     # Robot state publisher (URDF + TF tree)
+    # joint_state_publisher (JSP) publishes constant zero positions; it must
+    # not run alongside joint_state_broadcaster (started by moveit_bringup
+    # when enable_moveit:=true), which publishes the real servo positions on
+    # the same /joint_states topic. use_jsp = NOT enable_moveit.
+    #
+    # Gated UnlessCondition(use_sim_time): in simulation a sim source (e.g.
+    # Gazebo via gz_ros2_control) already publishes robot_state_publisher's
+    # /robot_description and TF, so starting a second one here would fight it.
     urdf_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_main, 'launch', 'urdf.launch.py')
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time
-        }.items()
+            'use_sim_time': use_sim_time,
+            'use_jsp': PythonExpression([
+                "'false' if '", enable_moveit, "'.lower() == 'true' else 'true'"
+            ]),
+        }.items(),
+        condition=UnlessCondition(use_sim_time),
     )
 
-    # Static TF: world → base_footprint (MoveIt2 virtual joint)
-    world_to_base_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='world_to_base_footprint_tf',
-        arguments=['0', '0', '0', '0', '0', '0', 'world', 'base_footprint'],
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
+    # No static world->odom (or world->base_footprint) publisher here: with
+    # enable_navigation:=true, slam_toolbox (map_frame: map, odom_frame: odom;
+    # see jetank_navigation/config/slam/slam_toolbox.yaml) or Nav2/AMCL already
+    # publish map->odom, so a static world->odom link would give 'odom' two
+    # parents (world and map) -- the same dual-parent conflict this file used
+    # to have at base_footprint, just moved one frame up. MoveIt2 instead plans
+    # directly in 'odom' (jetank_moveit_config/config/jetank.srdf virtual_joint
+    # parent_frame='odom'), which is a real, single-parented frame in this TF
+    # tree whether or not navigation is enabled. Requirement: odom->base_footprint
+    # comes from robot_controller (motor_controller.launch.py, publish_odom
+    # must stay true); with publish_odom:=false MoveIt has no planning frame.
 
     # ============================================================================
     # WEB CONTROL (Conditional)
@@ -223,7 +283,7 @@ def generate_launch_description():
     # declares no launch arg for it).
     web_control_launch = GroupAction(
         condition=IfCondition(PythonExpression([
-            "'", enable_web_control, "' == 'true'"
+            "'", enable_web_control, "'.lower() == 'true'"
         ])),
         actions=[
             SetParameter(name='detections_topic', value=detections_socks()),
@@ -243,16 +303,24 @@ def generate_launch_description():
     # LAYER 2: HARDWARE INTERFACES
     # ============================================================================
 
-    # Motor controller (base mobility + odometry)
+    # Motor controller (base mobility + odometry). Gated UnlessCondition
+    # (use_sim_time): in simulation gz_ros2_control drives the diff-drive
+    # base and publishes /odom, so a second, open-loop motor driver here
+    # would fight it (and spam I2C errors with no hardware attached).
     motor_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_main, 'launch', 'motor_controller.launch.py')
-        )
+        ),
+        condition=UnlessCondition(use_sim_time),
     )
 
     # Stereo camera (perception pipeline). left/right_frame_id forward to
     # stereo_camera.launch.py's frame args (default the z-forward optical frames),
     # so disparity/pointcloud reprojection matches the URDF geometry on hardware.
+    # Gated on enable_perception and UnlessCondition(use_sim_time): callers
+    # that only need navigation or arm layers (e.g. navigation_full.launch.py)
+    # pass enable_perception:=false, and a sim source provides its own camera
+    # topics when use_sim_time:=true.
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_perception, 'launch', 'stereo_camera.launch.py')
@@ -264,7 +332,11 @@ def generate_launch_description():
             'publish_camera_transforms': 'false',  # TF handled by URDF
             'left_frame_id': left_frame_id,
             'right_frame_id': right_frame_id,
-        }.items()
+        }.items(),
+        condition=IfCondition(PythonExpression([
+            "'", enable_perception, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
+        ])),
     )
 
     # IMU (ICM-20948 on Waveshare IMX219-83 Stereo Camera module)
@@ -272,14 +344,25 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_navigation, 'launch', 'imu.launch.py')
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items()
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
+        condition=IfCondition(PythonExpression([
+            "'", enable_imu, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
+        ])),
     )
 
-    # Laser scan source: C1M1 RPLidar hardware
+    # Laser scan source: C1M1 RPLidar hardware. Conditional so base/arm-only
+    # sessions (no lidar attached) don't spawn a driver process that dies
+    # immediately when /dev/ttyUSB0 is absent; also gated off in simulation,
+    # where a sim source publishes /scan.
     laser_scan_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_navigation, 'launch', 'lidar.launch.py')
-        )
+        ),
+        condition=IfCondition(PythonExpression([
+            "'", enable_lidar, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
+        ])),
     )
 
     # ============================================================================
@@ -307,6 +390,35 @@ def generate_launch_description():
         condition=IfCondition(enable_moveit),
     )
 
+    # moveit_bringup's ros2_control_node (controller_manager) has been observed
+    # to crash on hardware:=serial (e.g. JetankSerial open failure) while its
+    # three controller spawners and move_group are left running: the spawners
+    # poll a dead /controller_manager service forever (~65 MB RSS each) and
+    # move_group is useless without controllers. moveit_bringup.launch.py has
+    # no crash handling of its own, and it lives in jetank_moveit_config, so we
+    # detect the crash here by process executable name (stable across that
+    # package) and shut down the now-orphaned processes instead of leaving
+    # them to idle for the rest of the session.
+    moveit_controller_manager_crash_handler = RegisterEventHandler(
+        OnProcessExit(
+            target_action=matches_executable('ros2_control_node'),
+            on_exit=lambda event, context: None if event.returncode == 0 else [
+                LogInfo(msg=(
+                    'ros2_control_node (controller_manager) exited with code '
+                    f'{event.returncode}; no controllers are available, so '
+                    'shutting down the now-orphaned spawners and move_group.'
+                )),
+                EmitEvent(event=ShutdownProcess(
+                    process_matcher=lambda action: (
+                        matches_executable('spawner')(action)
+                        or matches_executable('move_group')(action)
+                    )
+                )),
+            ],
+        ),
+        condition=IfCondition(enable_moveit),
+    )
+
     # ============================================================================
     # LAYER 4: NAVIGATION STACK (Conditional)
     # ============================================================================
@@ -318,7 +430,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'slam'"
+                "'", enable_navigation, "'.lower() == 'true' and '", navigation_mode, "' == 'slam'"
             ])
         ),
         launch_arguments={'use_sim_time': use_sim_time}.items()
@@ -331,7 +443,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'nav2'"
+                "'", enable_navigation, "'.lower() == 'true' and '", navigation_mode, "' == 'nav2'"
             ])
         ),
         launch_arguments={
@@ -353,8 +465,8 @@ def generate_launch_description():
             '  Web Control:    ', enable_web_control, ' (port ', web_port, ')\n',
             '  Navigation:     ', enable_navigation, ' (', navigation_mode, ')\n',
             '  MoveIt2:        ', enable_moveit, ' (hardware=', hardware, ')\n',
-            '  LiDAR: RPLidar C1M1 (hardware)\n',
-            '  IMU: ICM-20948 (imu/data_raw, imu/magnetic_field)\n',
+            '  LiDAR:          ', enable_lidar, ' (RPLidar C1M1, hardware)\n',
+            '  IMU:            ', enable_imu, ' (ICM-20948, imu/data_raw, imu/magnetic_field)\n',
             '  Map File:       ', map_file, '\n',
             '  Camera frames:  left=', left_frame_id, ' right=', right_frame_id, '\n',
             '========================================\n'
@@ -376,6 +488,9 @@ def generate_launch_description():
     ld.add_action(declare_navigation_mode)
     ld.add_action(declare_map_file)
     ld.add_action(declare_hardware)
+    ld.add_action(declare_enable_lidar)
+    ld.add_action(declare_enable_imu)
+    ld.add_action(declare_enable_perception)
     ld.add_action(declare_left_frame_id)
     ld.add_action(declare_right_frame_id)
 
@@ -384,7 +499,6 @@ def generate_launch_description():
 
     # Layer 1: Robot description
     ld.add_action(urdf_launch)
-    ld.add_action(world_to_base_tf)
 
     # Layer 2: Hardware interfaces
     ld.add_action(motor_launch)
@@ -397,6 +511,7 @@ def generate_launch_description():
 
     # Layer 3: MoveIt2 (conditional, delegated to jetank_moveit_config)
     ld.add_action(moveit_bringup)
+    ld.add_action(moveit_controller_manager_crash_handler)
 
     # Layer 4: Navigation (conditional)
     ld.add_action(slam_launch)

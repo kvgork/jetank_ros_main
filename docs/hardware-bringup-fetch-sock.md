@@ -414,7 +414,7 @@ tegrastats --interval 1000   # in a separate terminal
 
 The left and right motors almost certainly drive at different speeds for the same command due to manufacturing variation. Uncalibrated, the robot will curve during straight-line Nav2 goals.
 
-- **What to calibrate:** `left_motor_alpha`, `left_motor_beta`, `right_motor_alpha`, `right_motor_beta` in `src/jetank_ros_main/config/motor_params.yaml`.
+- **What to calibrate:** `left_motor_alpha`, `left_motor_beta`, `right_motor_alpha`, `right_motor_beta` in `src/jetank_motor_control/config/motor_params.yaml`.
 - **Current values:** all alpha=1.0, beta=0.0 (identity — no calibration applied).
 - **Method:** command a fixed velocity, measure actual distance traveled per side over a known distance. Adjust alpha (gain) until both sides match. Repeat for left/right symmetry.
 - **Apply:** edit `motor_params.yaml` and rebuild (`pixi run build-motor`).

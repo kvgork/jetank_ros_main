@@ -21,6 +21,7 @@ Args:
 
 """
 
+from jetank_ros_main.sock_detector_autostart import sock_detector_autostart
 from jetank_ros_main.topics import (
     camera_left_raw,
     detections_socks,
@@ -30,7 +31,6 @@ from jetank_ros_main.topics import (
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     GroupAction,
     IncludeLaunchDescription,
     TimerAction,
@@ -107,10 +107,10 @@ def generate_launch_description():
     pipeline = TimerAction(period=34.0, actions=[seg, grasp, approach, coordinator])
 
     # --- auto configure + activate the sock_detector lifecycle node ---
-    lc_configure = TimerAction(period=40.0, actions=[ExecuteProcess(
-        cmd=["ros2", "lifecycle", "set", "/sock_detector", "configure"], output="screen")])
-    lc_activate = TimerAction(period=46.0, actions=[ExecuteProcess(
-        cmd=["ros2", "lifecycle", "set", "/sock_detector", "activate"], output="screen")])
+    # Poll-based (see sock_detector_autostart()) instead of fixed TimerActions:
+    # a fixed delay either fires before the node exists or wastes time waiting
+    # past when it was actually ready.
+    detector_autostart = sock_detector_autostart(start_after_s=30.0)
 
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="sock_arena"),
@@ -119,5 +119,5 @@ def generate_launch_description():
         DeclareLaunchArgument("use_rviz", default_value="true"),
         DeclareLaunchArgument("gui", default_value="true",
                               description="Gazebo GUI client (false => server-only)."),
-        gazebo, move_group, perception, detector, pipeline, lc_configure, lc_activate,
+        gazebo, move_group, perception, detector, pipeline, detector_autostart,
     ])

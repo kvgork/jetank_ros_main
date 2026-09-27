@@ -11,6 +11,13 @@
 
   <depend>rclpy</depend>
 
+  <!-- Used by scripts/test_drive.py, scripts/test_cameras.py (console_scripts
+       entry points) and topics.py (config/topics.yaml contract parser). -->
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
@@ -22,14 +29,20 @@
   <exec_depend>launch_xml</exec_depend>
   <exec_depend>launch_yaml</exec_depend>
 
-  <!-- JeTank package dependencies - ensures all packages are built together -->
-  <depend>jetank_motor_control</depend>
-  <depend>jetank_perception</depend>
-  <depend>jetank_navigation</depend>
-  <depend>jetank_description</depend>
-  <depend>jetank_simulation</depend>
-  <depend>jetank_moveit_config</depend>
-  <depend>jetank_web_control</depend>
+  <!-- JeTank package dependencies. This is an ament_python package with no
+       build step against these siblings (only their launch files, share
+       directories and executables are used at launch time), so exec_depend
+       is correct here, not depend; depend would also force jetank_simulation
+       (Gazebo/ros_gz) onto every hardware-only build of this package. -->
+  <exec_depend>jetank_motor_control</exec_depend>
+  <exec_depend>jetank_perception</exec_depend>
+  <exec_depend>jetank_navigation</exec_depend>
+  <exec_depend>jetank_description</exec_depend>
+  <exec_depend>jetank_simulation</exec_depend>
+  <exec_depend>jetank_moveit_config</exec_depend>
+  <exec_depend>jetank_web_control</exec_depend>
+  <!-- launch/mobile_grasp.launch.py, mobile_grasp_hw.launch.py, sim_demo.launch.py -->
+  <exec_depend>jetank_manipulation</exec_depend>
 
   <!-- Sock detection (optional at launch time via detect:=true) -->
   <exec_depend>jetank_detection</exec_depend>

@@ -44,6 +44,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 
+from jetank_ros_main.sock_detector_autostart import sock_detector_autostart
 from jetank_ros_main.topics import (
     camera_left_raw,
     detections_socks,
@@ -53,7 +54,6 @@ from jetank_ros_main.topics import (
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     GroupAction,
     IncludeLaunchDescription,
     TimerAction,
@@ -134,8 +134,14 @@ def generate_launch_description():
     # --- pipeline nodes (use_sim_time:=false) ---
     seg = Node(package="jetank_perception", executable="sock_segmentation_server",
                name="sock_segmentation_server", parameters=[not_sim], output="screen")
+    # gripper_action: on hardware moveit_bringup.launch.py works around the
+    # controller_manager 2.54/2.53.1 skew that collapses every controller onto
+    # the controller_manager node, so the GripperCommand server lives at
+    # /controller_manager/gripper_cmd instead of /gripper_controller/gripper_cmd.
     grasp = Node(package="jetank_manipulation", executable="grasp_server",
-                 name="grasp_server", parameters=[grasp_poses_yaml, not_sim],
+                 name="grasp_server",
+                 parameters=[grasp_poses_yaml, not_sim,
+                             {"gripper_action": "/controller_manager/gripper_cmd"}],
                  output="screen")
     # base_approach publishes TwistStamped to /cmd_vel_manip (bridged to /cmd_vel),
     # NOT the sim diff_drive_controller topic.
@@ -149,15 +155,15 @@ def generate_launch_description():
     pipeline = TimerAction(period=16.0, actions=[seg, grasp, approach, coordinator])
 
     # --- auto configure + activate the sock_detector lifecycle node ---
-    lc_configure = TimerAction(period=22.0, actions=[ExecuteProcess(
-        cmd=["ros2", "lifecycle", "set", "/sock_detector", "configure"], output="screen")])
-    lc_activate = TimerAction(period=28.0, actions=[ExecuteProcess(
-        cmd=["ros2", "lifecycle", "set", "/sock_detector", "activate"], output="screen")])
+    # Poll-based (see sock_detector_autostart()) instead of fixed TimerActions:
+    # a fixed delay either fires before the node exists or wastes time waiting
+    # past when it was actually ready.
+    detector_autostart = sock_detector_autostart(start_after_s=12.0)
 
     return LaunchDescription([
         DeclareLaunchArgument("model_path_real",
                               default_value="/home/koen/models/sock_real.pt"),
         DeclareLaunchArgument("confidence", default_value="0.5"),
         DeclareLaunchArgument("enable_web_control", default_value="false"),
-        unified, cmd_vel_bridge, detector, pipeline, lc_configure, lc_activate,
+        unified, cmd_vel_bridge, detector, pipeline, detector_autostart,
     ])

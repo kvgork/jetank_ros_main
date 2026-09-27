@@ -40,6 +40,7 @@ Move the arm interactively with MoveIt instead via::
 
 import os
 
+from jetank_ros_main.sock_detector_autostart import sock_detector_autostart
 from jetank_ros_main.topics import (
     camera_left_raw,
     detections_socks,
@@ -49,7 +50,6 @@ from jetank_ros_main.topics import (
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    ExecuteProcess,
     GroupAction,
     IncludeLaunchDescription,
 )
@@ -214,18 +214,9 @@ def generate_launch_description():
     )
 
     # 8. Auto-activate the sock_detector lifecycle node so the demo is one command
-    #    (no manual `ros2 lifecycle set`). Polls until the node exists (Gazebo is
-    #    slow to come up), then configure -> activate. Non-fatal if the model is
-    #    missing — the detector just stays unconfigured and logs a warning.
-    detector_autostart = ExecuteProcess(
-        condition=IfCondition(detect),
-        cmd=['bash', '-c',
-             'for i in $(seq 1 90); do '
-             'ros2 node list 2>/dev/null | grep -q /sock_detector && break; sleep 2; done; '
-             'ros2 lifecycle set /sock_detector configure && sleep 3 && '
-             'ros2 lifecycle set /sock_detector activate'],
-        output='screen',
-    )
+    #    (no manual `ros2 lifecycle set`). See sock_detector_autostart() for why
+    #    this polls instead of using a fixed delay.
+    detector_autostart = sock_detector_autostart(condition=IfCondition(detect))
 
     ld = LaunchDescription()
     ld.add_action(declare_world)
