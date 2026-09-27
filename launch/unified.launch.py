@@ -334,7 +334,8 @@ def generate_launch_description():
             'right_frame_id': right_frame_id,
         }.items(),
         condition=IfCondition(PythonExpression([
-            "'", enable_perception, "' == 'true' and '", use_sim_time, "' == 'false'"
+            "'", enable_perception, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
         ])),
     )
 
@@ -345,7 +346,8 @@ def generate_launch_description():
         ),
         launch_arguments={'use_sim_time': use_sim_time}.items(),
         condition=IfCondition(PythonExpression([
-            "'", enable_imu, "' == 'true' and '", use_sim_time, "' == 'false'"
+            "'", enable_imu, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
         ])),
     )
 
@@ -358,7 +360,8 @@ def generate_launch_description():
             os.path.join(pkg_jetank_navigation, 'launch', 'lidar.launch.py')
         ),
         condition=IfCondition(PythonExpression([
-            "'", enable_lidar, "' == 'true' and '", use_sim_time, "' == 'false'"
+            "'", enable_lidar, "'.lower() == 'true' and '",
+            use_sim_time, "'.lower() in ('false', '0')"
         ])),
     )
 
