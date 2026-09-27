@@ -73,11 +73,15 @@ from jetank_ros_main.topics import (
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    EmitEvent,
     GroupAction,
     IncludeLaunchDescription,
     LogInfo,
+    RegisterEventHandler,
 )
 from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
+from launch.events.process import ShutdownProcess, matches_executable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 
@@ -344,6 +348,35 @@ def generate_launch_description():
         condition=IfCondition(enable_moveit),
     )
 
+    # moveit_bringup's ros2_control_node (controller_manager) has been observed
+    # to crash on hardware:=serial (e.g. JetankSerial open failure) while its
+    # three controller spawners and move_group are left running: the spawners
+    # poll a dead /controller_manager service forever (~65 MB RSS each) and
+    # move_group is useless without controllers. moveit_bringup.launch.py has
+    # no crash handling of its own, and it lives in jetank_moveit_config, so we
+    # detect the crash here by process executable name (stable across that
+    # package) and shut down the now-orphaned processes instead of leaving
+    # them to idle for the rest of the session.
+    moveit_controller_manager_crash_handler = RegisterEventHandler(
+        OnProcessExit(
+            target_action=matches_executable('ros2_control_node'),
+            on_exit=lambda event, context: None if event.returncode == 0 else [
+                LogInfo(msg=(
+                    'ros2_control_node (controller_manager) exited with code '
+                    f'{event.returncode}; no controllers are available, so '
+                    'shutting down the now-orphaned spawners and move_group.'
+                )),
+                EmitEvent(event=ShutdownProcess(
+                    process_matcher=lambda action: (
+                        matches_executable('spawner')(action)
+                        or matches_executable('move_group')(action)
+                    )
+                )),
+            ],
+        ),
+        condition=IfCondition(enable_moveit),
+    )
+
     # ============================================================================
     # LAYER 4: NAVIGATION STACK (Conditional)
     # ============================================================================
@@ -435,6 +468,7 @@ def generate_launch_description():
 
     # Layer 3: MoveIt2 (conditional, delegated to jetank_moveit_config)
     ld.add_action(moveit_bringup)
+    ld.add_action(moveit_controller_manager_crash_handler)
 
     # Layer 4: Navigation (conditional)
     ld.add_action(slam_launch)
