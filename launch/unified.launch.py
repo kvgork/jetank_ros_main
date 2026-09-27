@@ -77,7 +77,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
 
-from launch_ros.actions import Node, SetParameter
+from launch_ros.actions import SetParameter
 
 
 def generate_launch_description():
@@ -199,24 +199,15 @@ def generate_launch_description():
         }.items()
     )
 
-    # Static TF: world -> odom (MoveIt2 virtual joint root).
-    # Publishes to 'odom', not 'base_footprint': robot_controller (started via
-    # motor_controller.launch.py, below) already broadcasts odom->base_footprint
-    # on /tf whenever publish_odom is true (the default), so base_footprint must
-    # keep that single parent. Anchoring this static link at 'odom' instead gives
-    # a single-parent world->odom->base_footprint chain that still satisfies the
-    # SRDF virtual joint's 'world' planning frame (jetank_moveit_config/jetank.srdf),
-    # without the world/odom dual-parent conflict base_footprint had before.
-    world_to_odom_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='world_to_odom_tf',
-        arguments=['0', '0', '0', '0', '0', '0', 'world', 'odom'],
-        parameters=[{'use_sim_time': use_sim_time}],
-        condition=IfCondition(PythonExpression([
-            "'", enable_moveit, "' == 'true'"
-        ]))
-    )
+    # No static world->odom (or world->base_footprint) publisher here: with
+    # enable_navigation:=true, slam_toolbox (map_frame: map, odom_frame: odom;
+    # see jetank_navigation/config/slam/slam_toolbox.yaml) or Nav2/AMCL already
+    # publish map->odom, so a static world->odom link would give 'odom' two
+    # parents (world and map) -- the same dual-parent conflict this file used
+    # to have at base_footprint, just moved one frame up. MoveIt2 instead plans
+    # directly in 'odom' (jetank_moveit_config/config/jetank.srdf virtual_joint
+    # parent_frame='odom'), which is a real, single-parented frame in this TF
+    # tree whether or not navigation is enabled.
 
     # ============================================================================
     # WEB CONTROL (Conditional)
@@ -391,7 +382,6 @@ def generate_launch_description():
 
     # Layer 1: Robot description
     ld.add_action(urdf_launch)
-    ld.add_action(world_to_odom_tf)
 
     # Layer 2: Hardware interfaces
     ld.add_action(motor_launch)
