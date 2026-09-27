@@ -21,13 +21,15 @@ pre-existing sim_demo.launch.py convention, which every caller here
 preserves.
 """
 
-from launch.actions import ExecuteProcess
+from launch.actions import ExecuteProcess, TimerAction
 
 
 def sock_detector_autostart(
-    condition=None, poll_timeout_s=180, node_name='/sock_detector'
+    condition=None, poll_timeout_s=180, node_name='/sock_detector',
+    start_after_s=0.0,
 ):
-    """Return an ExecuteProcess that configures then activates node_name.
+    """
+    Return an action that configures then activates node_name.
 
     Polls ``ros2 node list`` every 2 s, up to ``poll_timeout_s``, until
     ``node_name`` appears (it may not exist yet if e.g. Gazebo or the camera
@@ -38,9 +40,13 @@ def sock_detector_autostart(
         (e.g. only auto-start when a `detect` launch argument is true).
     :param poll_timeout_s: maximum time to wait for the node to appear.
     :param node_name: fully-qualified lifecycle node name to transition.
+    :param start_after_s: delay before polling starts. Callers that start the
+        detector on a TimerAction should pass that same period so the poll
+        does not spawn ``ros2 node list`` every 2 s while the detector is
+        deliberately not running yet.
     """
     attempts = max(1, poll_timeout_s // 2)
-    return ExecuteProcess(
+    process = ExecuteProcess(
         condition=condition,
         cmd=['bash', '-c',
              f'for i in $(seq 1 {attempts}); do '
@@ -49,3 +55,6 @@ def sock_detector_autostart(
              f'ros2 lifecycle set {node_name} activate'],
         output='screen',
     )
+    if start_after_s > 0:
+        return TimerAction(period=float(start_after_s), actions=[process])
+    return process

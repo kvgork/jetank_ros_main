@@ -110,7 +110,7 @@ def generate_launch_description():
     # Poll-based (see sock_detector_autostart()) instead of fixed TimerActions:
     # a fixed delay either fires before the node exists or wastes time waiting
     # past when it was actually ready.
-    detector_autostart = sock_detector_autostart()
+    detector_autostart = sock_detector_autostart(start_after_s=30.0)
 
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="sock_arena"),
