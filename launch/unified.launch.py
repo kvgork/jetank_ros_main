@@ -199,12 +199,19 @@ def generate_launch_description():
         }.items()
     )
 
-    # Static TF: world → base_footprint (MoveIt2 virtual joint)
-    world_to_base_tf = Node(
+    # Static TF: world -> odom (MoveIt2 virtual joint root).
+    # Publishes to 'odom', not 'base_footprint': robot_controller (started via
+    # motor_controller.launch.py, below) already broadcasts odom->base_footprint
+    # on /tf whenever publish_odom is true (the default), so base_footprint must
+    # keep that single parent. Anchoring this static link at 'odom' instead gives
+    # a single-parent world->odom->base_footprint chain that still satisfies the
+    # SRDF virtual joint's 'world' planning frame (jetank_moveit_config/jetank.srdf),
+    # without the world/odom dual-parent conflict base_footprint had before.
+    world_to_odom_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='world_to_base_footprint_tf',
-        arguments=['0', '0', '0', '0', '0', '0', 'world', 'base_footprint'],
+        name='world_to_odom_tf',
+        arguments=['0', '0', '0', '0', '0', '0', 'world', 'odom'],
         parameters=[{'use_sim_time': use_sim_time}],
         condition=IfCondition(PythonExpression([
             "'", enable_moveit, "' == 'true'"
@@ -384,7 +391,7 @@ def generate_launch_description():
 
     # Layer 1: Robot description
     ld.add_action(urdf_launch)
-    ld.add_action(world_to_base_tf)
+    ld.add_action(world_to_odom_tf)
 
     # Layer 2: Hardware interfaces
     ld.add_action(motor_launch)
