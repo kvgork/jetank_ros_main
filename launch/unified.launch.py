@@ -253,7 +253,7 @@ def generate_launch_description():
         launch_arguments={
             'use_sim_time': use_sim_time,
             'use_jsp': PythonExpression([
-                "'false' if '", enable_moveit, "' == 'true' else 'true'"
+                "'false' if '", enable_moveit, "'.lower() == 'true' else 'true'"
             ]),
         }.items(),
         condition=UnlessCondition(use_sim_time),
@@ -283,7 +283,7 @@ def generate_launch_description():
     # declares no launch arg for it).
     web_control_launch = GroupAction(
         condition=IfCondition(PythonExpression([
-            "'", enable_web_control, "' == 'true'"
+            "'", enable_web_control, "'.lower() == 'true'"
         ])),
         actions=[
             SetParameter(name='detections_topic', value=detections_socks()),
@@ -430,7 +430,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'slam'"
+                "'", enable_navigation, "'.lower() == 'true' and '", navigation_mode, "' == 'slam'"
             ])
         ),
         launch_arguments={'use_sim_time': use_sim_time}.items()
@@ -443,7 +443,7 @@ def generate_launch_description():
         ),
         condition=IfCondition(
             PythonExpression([
-                "'", enable_navigation, "' == 'true' and '", navigation_mode, "' == 'nav2'"
+                "'", enable_navigation, "'.lower() == 'true' and '", navigation_mode, "' == 'nav2'"
             ])
         ),
         launch_arguments={
