@@ -190,12 +190,19 @@ def generate_launch_description():
     # ============================================================================
 
     # Robot state publisher (URDF + TF tree)
+    # joint_state_publisher (JSP) publishes constant zero positions; it must
+    # not run alongside joint_state_broadcaster (started by moveit_bringup
+    # when enable_moveit:=true), which publishes the real servo positions on
+    # the same /joint_states topic. use_jsp = NOT enable_moveit.
     urdf_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_main, 'launch', 'urdf.launch.py')
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time
+            'use_sim_time': use_sim_time,
+            'use_jsp': PythonExpression([
+                "'false' if '", enable_moveit, "' == 'true' else 'true'"
+            ]),
         }.items()
     )
 

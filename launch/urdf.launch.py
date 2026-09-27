@@ -14,6 +14,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -24,6 +25,7 @@ def generate_launch_description():
     pkg_share = get_package_share_directory('jetank_description')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='false')
+    use_jsp = LaunchConfiguration('use_jsp', default='true')
 
     # Canonical include: expands jetank_ros2_control.urdf.xacro and starts
     # robot_state_publisher.
@@ -44,13 +46,25 @@ def generate_launch_description():
             description='Use simulation (Gazebo) clock if true'
         ),
 
+        DeclareLaunchArgument(
+            'use_jsp',
+            default_value='true',
+            description=(
+                'Start joint_state_publisher. Set to false when another node '
+                '(e.g. joint_state_broadcaster via ros2_control/MoveIt) is '
+                'already publishing /joint_states, to avoid two publishers '
+                'fighting over the same topic.'
+            )
+        ),
+
         robot_description_launch,
 
-        # Joint State Publisher
+        # Joint State Publisher (only when nothing else publishes /joint_states)
         Node(
             package='joint_state_publisher',
             executable='joint_state_publisher',
             name='joint_state_publisher',
-            parameters=[{'use_sim_time': use_sim_time}]
+            parameters=[{'use_sim_time': use_sim_time}],
+            condition=IfCondition(use_jsp),
         ),
     ])
