@@ -23,6 +23,10 @@ Launch arguments:
                       'serial' (real JetankSerial servos). Default 'mock'
                       preserves existing callers. Passed through to
                       moveit_bringup.launch.py unchanged.
+  enable_lidar:       Start the RPLidar driver (default: true). Set false
+                      for sessions with no lidar attached.
+  enable_imu:         Start the IMU driver (default: true). Set false when
+                      the ICM-20948 is not attached.
   left_frame_id:      Left camera optical frame id, forwarded to
                       stereo_camera.launch.py's left_frame_id arg (overrides the
                       non-optical *_link default in stereo_camera_config.yaml so
@@ -102,6 +106,8 @@ def generate_launch_description():
     navigation_mode = LaunchConfiguration('navigation_mode')
     map_file = LaunchConfiguration('map_file')
     hardware = LaunchConfiguration('hardware')
+    enable_lidar = LaunchConfiguration('enable_lidar')
+    enable_imu = LaunchConfiguration('enable_imu')
     left_frame_id = LaunchConfiguration('left_frame_id')
     right_frame_id = LaunchConfiguration('right_frame_id')
 
@@ -156,6 +162,26 @@ def generate_launch_description():
             'ros2_control backend for MoveIt2: '
             'mock = software-only (arm reports success, no motors move); '
             'serial = real JetankSerialHardware servos (requires /dev/ttyTHS1).'
+        )
+    )
+
+    declare_enable_lidar = DeclareLaunchArgument(
+        'enable_lidar',
+        default_value='true',
+        description=(
+            'Start the RPLidar driver (jetank_navigation/lidar.launch.py). '
+            'Set to false for base/arm-only sessions with no lidar attached, '
+            'to avoid a driver process that immediately fails when '
+            '/dev/ttyUSB0 is absent.'
+        )
+    )
+
+    declare_enable_imu = DeclareLaunchArgument(
+        'enable_imu',
+        default_value='true',
+        description=(
+            'Start the IMU driver (jetank_navigation/imu.launch.py). '
+            'Set to false when the ICM-20948 is not attached.'
         )
     )
 
@@ -279,14 +305,18 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_navigation, 'launch', 'imu.launch.py')
         ),
-        launch_arguments={'use_sim_time': use_sim_time}.items()
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
+        condition=IfCondition(enable_imu),
     )
 
-    # Laser scan source: C1M1 RPLidar hardware
+    # Laser scan source: C1M1 RPLidar hardware. Conditional so base/arm-only
+    # sessions (no lidar attached) don't spawn a driver process that dies
+    # immediately when /dev/ttyUSB0 is absent.
     laser_scan_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_jetank_navigation, 'launch', 'lidar.launch.py')
-        )
+        ),
+        condition=IfCondition(enable_lidar),
     )
 
     # ============================================================================
@@ -360,8 +390,8 @@ def generate_launch_description():
             '  Web Control:    ', enable_web_control, ' (port ', web_port, ')\n',
             '  Navigation:     ', enable_navigation, ' (', navigation_mode, ')\n',
             '  MoveIt2:        ', enable_moveit, ' (hardware=', hardware, ')\n',
-            '  LiDAR: RPLidar C1M1 (hardware)\n',
-            '  IMU: ICM-20948 (imu/data_raw, imu/magnetic_field)\n',
+            '  LiDAR:          ', enable_lidar, ' (RPLidar C1M1, hardware)\n',
+            '  IMU:            ', enable_imu, ' (ICM-20948, imu/data_raw, imu/magnetic_field)\n',
             '  Map File:       ', map_file, '\n',
             '  Camera frames:  left=', left_frame_id, ' right=', right_frame_id, '\n',
             '========================================\n'
@@ -383,6 +413,8 @@ def generate_launch_description():
     ld.add_action(declare_navigation_mode)
     ld.add_action(declare_map_file)
     ld.add_action(declare_hardware)
+    ld.add_action(declare_enable_lidar)
+    ld.add_action(declare_enable_imu)
     ld.add_action(declare_left_frame_id)
     ld.add_action(declare_right_frame_id)
 
